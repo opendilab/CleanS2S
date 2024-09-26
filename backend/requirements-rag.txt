@@ -1,0 +1,5 @@
+langchain>=0.2.15
+langchain_community
+langchain_openai
+sentence-transformers
+chromadb==0.5.3

@@ -1,0 +1,12 @@
+*.pyc
+*.swp
+*.DS_Store
+__pycache__/*
+backend/.env.dev
+backend/tmp
+backend/persist_db
+*output.wav
+*ragtmp
+backend/examples
+*pretrained_models
+*.wav
