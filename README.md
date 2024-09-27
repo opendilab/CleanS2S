@@ -1,9 +1,9 @@
 # CleanS2S
 
-English | [简体中文(Simplified Chinese)](https://github.com/opendilab/CleanS2S/blob/main/README.zh.md) | 
+English | [简体中文(Simplified Chinese)](https://github.com/opendilab/CleanS2S/blob/main/README.zh.md) 
 
-**CleanS2S** is a Speech-to-Speech (S2S) prototype agent that provides high-quality and streaming interactions in the single-file implementation. This design is simple and clean, aiming to provide a 
-Chinese interactive prototype agent like the GPT-4o style. This project wants to let users directly experience the power of Linguistic User Interface (LUI) and quickly explore/vailidate the potential of the S2S pipeline for researchers.
+**CleanS2S** is a Speech-to-Speech (**S2S**) prototype agent that provides high-quality and streaming interactions in the single-file implementation. This design is simple and clean, aiming to provide a 
+Chinese interactive prototype agent like the GPT-4o style. This project wants to let users directly experience the power of Linguistic User Interface (**LUI**) and quickly explore/vailidate the potential of the S2S pipeline for researchers.
 
 Here are some live demos of CleanS2S:
 
@@ -11,7 +11,6 @@ TBD
 
 ## Outline
 
-- [Introduction to CleanS2S](#introduction-to-cleans2s)
 - [Outline](#outline)
 - [Features](#features)
 - [Get Started](#get-started)
@@ -40,7 +39,7 @@ To achieve this, we utilize multi-threading and queueing mechanisms to ensure th
 
 ### 🧫 Full-duplex interaction with interruptions
 
-Based on the powerful mechanisms provided by [WebSockets](https://developer.mozilla.org/en-US/docs/Web/API/WebSockets_API), the pipeline supports full-duplex interaction, which means the user can speak and listen to the agent at the same time.
+Based on the powerful mechanisms provided by [WebSockets](https://websockets.readthedocs.io/en/stable/), the pipeline supports full-duplex interaction, which means the user can speak and listen to the agent at the same time.
 Furthermore, the pipeline supports interruptions, which means the user can interrupt the agent at any time during the conversation with a new sppech input. The agent will stop current processing and start to process the new input with the context of the previous conversations and interruptions.
 Besides, we find the "assistant-style" and "turned-based" response usually used in chatbot is one of the most important drawbacks for human-like conversation. We add more interesting strategies for the agent to make the conversation more interactive and engaging. 
 
@@ -77,7 +76,7 @@ If you want to use your own reference audio, you need to keep it in the same for
 Here is an example of running the server with the default settings:
 ```bash
 export LLM_API_KEY=<your-deepseek-api-key>
-python3 -u s2s_pipeline.py \
+python3 -u s2s_server_pipeline.py \
         --recv_host 0.0.0.0 \
         --send_host 0.0.0.0 \
         --stt_model_name <your-asr-path> \
@@ -90,7 +89,7 @@ python3 -u s2s_pipeline.py \
 ```
 > ℹ️ **Support for customized LLM**: Here we use deepseek-chat as the default LLM API, you can also change to other LLM API follow the OpenAI interface. (modify the `--lm_model_name` and `--lm_model_url`, set your own API key)
 
-> ℹ️ **Support for other customizations**: You can refer to the parameters list implemented by the `argparse` library in the backend pipeline file (e.g. `s2s_pipeline.py`) to customize it according to your own needs.
+> ℹ️ **Support for other customizations**: You can refer to the parameters list implemented by the `argparse` library in the backend pipeline file (e.g. `s2s_server_pipeline.py`) to customize it according to your own needs.
 All the parameters are well-documented in their help attributes and easy to understand.
 
 ### Frontend (Client)
