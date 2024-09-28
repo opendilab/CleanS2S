@@ -129,15 +129,18 @@ python3 -u s2s_server_pipeline.py \
 > ℹ️ **Support for other customizations**: You can refer to the parameters list implemented by the `argparse` library in the backend pipeline file (e.g. `s2s_server_pipeline.py`) to customize it according to your own needs.
 All the parameters are well-documented in their help attributes and easy to understand.
 
+<br>
 <details>
 <summary><strong style="font-size: 1.5em;">Running the server w/ Websearch+RAG</strong></summary>
-
+<br>
 You should install the dependencies which Websearch and RAG needed first.
+  
 ```bash
 pip install -r backend/requirements-rag.txt
 ```
 
 Then, provide tokens for Websearch and RAG module, in `s2s_server_pipeline_rag.py` we use [Serper](https://serper.dev) as Websearch tool and [Deepseek](https://deepseek.com) for RAG.
+
 ```bash
 export LLM_API_KEY=''
 export SERPER_API_KEY=''
