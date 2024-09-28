@@ -133,10 +133,19 @@ All the parameters are well-documented in their help attributes and easy to unde
 <details>
 <summary><strong style="font-size: 1.5em;">Running the server w/ Websearch+RAG</strong></summary>
 <br>
+  
 You should install the dependencies which Websearch and RAG needed first.
   
 ```bash
 pip install -r backend/requirements-rag.txt
+```
+
+Second, choose an embedding model for embedding websearch result in RAG.
+like the followinging embedding model:
+
+```bash
+git lfs install
+git clone https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2
 ```
 
 Then, provide tokens for Websearch and RAG module, in `s2s_server_pipeline_rag.py` we use [Serper](https://serper.dev) as Websearch tool and [Deepseek](https://deepseek.com) for RAG.
@@ -146,8 +155,24 @@ export LLM_API_KEY=''
 export SERPER_API_KEY=''
 ```
 
-Finally, replace `s2s_server_pipeline.py` with `s2s_server_pipeline_rag.py` in the example code given in running the server.
+Finally, replace `s2s_server_pipeline.py` with `s2s_server_pipeline_rag.py` in the example code given in running the server. and add an arguments `--embedding_model_name`.
 
+Here is an example of running the server with the default settings with Webseach+RAG:
+
+```bash
+export LLM_API_KEY=<your-deepseek-api-key>
+python3 -u s2s_server_pipeline_rag.py \
+        --recv_host 0.0.0.0 \
+        --send_host 0.0.0.0 \
+        --stt_model_name <your-asr-path> \
+        --enable_llm_api \
+        --lm_model_name "deepseek-chat" \
+        --lm_model_url "https://api.deepseek.com" \
+        --tts_model_name <your-tts-path> \
+        --ref_dir <ref-audio-path> \
+        -- embedding_model_name <embedding-model-path> \
+        --enable_interruption
+```
 </details>
 
 
