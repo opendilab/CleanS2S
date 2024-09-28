@@ -43,10 +43,43 @@ Based on the powerful mechanisms provided by [WebSockets](https://websockets.rea
 Furthermore, the pipeline supports interruptions, which means the user can interrupt the agent at any time during the conversation with a new sppech input. The agent will stop current processing and start to process the new input with the context of the previous conversations and interruptions.
 Besides, we find the "assistant-style" and "turned-based" response usually used in chatbot is one of the most important drawbacks for human-like conversation. We add more interesting strategies for the agent to make the conversation more interactive and engaging. 
 
-### Complemented with Web Search and RAG
+### 🌍 Complemented with Web Search and RAG
 
-TBD
+The pipeline is further enhanced by the integration of web search capabilities and the Retrieval-Augmented Generation (RAG) model. 
+These features provide the agent with the ability to not only process and respond to user inputs in real-time but also to access and incorporate external information from the web into its responses. 
+This provides room for expansion and agility in answering various practical questions raised by users.
+  - The WebSearchHelper class is responsible for conducting online searches based on user queries or to gather additional information relevant to the conversation. This allows the agent to reference up-to-date or external data, enhancing the richness and accuracy of its responses.
+  - The RAG class implements a retrieval-augmented generation approach, which first retrieves relevant information from a database and then uses that information to generate responses. This two-step process ensures that the agent's replies are grounded in relevant, factual data, leading to more informed and contextually appropriate interactions.
 
+<table>
+  <tr>
+    <th>Case</th>
+    <td>
+      <strong>LanguageModelHandler</strong><br>
+      <span style="color: grey; font-size: smaller;">(Qwen-7b)</span>
+    </td>
+    <td>
+      <strong>RAGLanguageModelHelper</strong><br>
+      <span style="color: grey; font-size: smaller;">(deepseek-api)</span>
+    </td>
+  </tr>
+  <tr>
+    <td>Case 1</td>
+    <td></td>
+    <td></td>
+  </tr>
+  <tr>
+    <td>Case 2</td>
+    <td>Row 2 Col 2</td>
+    <td>Row 2 Col 3</td>
+  </tr>
+  <tr>
+    <td>Case 3</td>
+    <td>Row 3 Col 2</td>
+    <td>Row 3 Col 3</td>
+  </tr>
+</table>
+For more test case, please click [WebSockets](tbd).
 
 ## Get started
 
