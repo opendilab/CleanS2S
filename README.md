@@ -7,7 +7,9 @@ Chinese interactive prototype agent like the GPT-4o style. This project wants to
 
 Here are some live demos of CleanS2S:
 
-TBD
+https://github.com/user-attachments/assets/e86c1cad-ca49-4145-8c22-8d9de59f44b4
+
+https://github.com/user-attachments/assets/65333528-b07c-42ab-9cb5-660b68b404c4
 
 ## Outline
 
