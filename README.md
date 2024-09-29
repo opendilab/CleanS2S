@@ -160,7 +160,6 @@ Finally, replace `s2s_server_pipeline.py` with `s2s_server_pipeline_rag.py` in t
 Here is an example of running the server with the default settings with Webseach+RAG:
 
 ```bash
-export LLM_API_KEY=<your-deepseek-api-key>
 python3 -u s2s_server_pipeline_rag.py \
         --recv_host 0.0.0.0 \
         --send_host 0.0.0.0 \
@@ -170,7 +169,8 @@ python3 -u s2s_server_pipeline_rag.py \
         --lm_model_url "https://api.deepseek.com" \
         --tts_model_name <your-tts-path> \
         --ref_dir <ref-audio-path> \
-        -- embedding_model_name <embedding-model-path> \
+        --enable_rag \
+        --embedding_model_name <embedding-model-path> \
         --enable_interruption
 ```
 </details>
