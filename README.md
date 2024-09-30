@@ -5,9 +5,83 @@ English | [简体中文(Simplified Chinese)](https://github.com/opendilab/CleanS
 **CleanS2S** is a Speech-to-Speech (**S2S**) prototype agent that provides high-quality and streaming interactions in the single-file implementation. This design is simple and clean, aiming to provide a 
 Chinese interactive prototype agent like the GPT-4o style. This project wants to let users directly experience the power of Linguistic User Interface (**LUI**) and quickly explore/vailidate the potential of the S2S pipeline for researchers.
 
-Here are some live demos of CleanS2S:
+Here are some live conversation demos of CleanS2S:
 
-TBD
+> Note: please unmute the video first.
+
+
+<table>
+<tr>
+<td align="center">
+
+**投资话题1**
+
+</td>
+<td align="center">
+
+**投资话题2**
+
+</td>
+<td align="center">
+
+**心情话题**
+
+</td>
+<td align="center">
+
+**高考志愿话题**
+
+</td>
+</tr>
+<tr>
+<td align="center">
+
+[投资话题1](https://github.com/user-attachments/assets/65333528-b07c-42ab-9cb5-660b68b404c4)
+
+</td>
+<td align="center">
+
+[投资话题2](https://github.com/user-attachments/assets/65333528-b07c-42ab-9cb5-660b68b404c4)
+
+</td>
+<td align="center">
+
+[心情话题](https://github.com/user-attachments/assets/40d20126-9c6b-45db-8ee9-ce768fee5b3f)
+
+</td>
+<td align="center">
+
+[高考志愿话题](https://github.com/user-attachments/assets/e86c1cad-ca49-4145-8c22-8d9de59f44b4)
+
+</td>
+</tr>
+</table>
+
+
+<br>
+<details>
+<summary><strong style="font-size: 1.5em;">More Conversation Demos</strong></summary>
+<br>
+
+<table>
+<tr>
+<td align="center">
+
+**胃病话题**
+
+</td>
+</tr>
+<tr>
+<td align="center">
+
+[胃药话题](https://github.com/user-attachments/assets/84d27040-52b5-478e-8796-48ea7f468dc9)
+
+</td>
+</tr>
+</table>
+
+</details>
+
 
 ## Outline
 
