@@ -1,4 +1,4 @@
-from typing import Dict, List, Generator, Optional, Union, Any
+from typing import Dict, List, Optional, Union, Any
 from abc import ABC, abstractmethod
 import logging
 import os
@@ -122,7 +122,7 @@ class BaseHandler(ABC):
         self._times = []
 
     @abstractmethod
-    def process(self, data: Dict[str, Any]) -> Generator:
+    def process(self, data: Dict[str, Any]) -> Dict[str, Any]:
         raise NotImplementedError
 
     def run(self) -> None:
@@ -689,7 +689,7 @@ class ParaFormerSTTHandler(BaseHandler):
         """
         raise NotImplementedError
 
-    def process(self, inputs: Dict[str, Union[np.ndarray, int]]) -> Generator[Dict[str, Union[str, int]], None, None]:
+    def process(self, inputs: Dict[str, Union[np.ndarray, int]]) -> Dict[str, Union[str, int]]:
         """
         Process the input acquired from queue_in (from SocketVADReceiver) and generate the ASR output with Paraformer.
         Arguments:
@@ -947,7 +947,7 @@ class LanguageModelHandler(BaseHandler):
 
         logger.info(f"{self.__class__.__name__}:  warmed up! time: {start_event.elapsed_time(end_event) * 1e-3:.3f} s")
 
-    def process(self, inputs: Dict[str, Union[str, int]]) -> Generator[Dict[str, Union[str, int, bool]], None, None]:
+    def process(self, inputs: Dict[str, Union[str, int]]) -> Dict[str, Union[str, int, bool]]:
         """
         Process the input acquired from queue_in (from ASR/STT) and generate the output of the language model with
         the stream paradigm, i.e., yield the generated subtext in real-time.
@@ -1134,7 +1134,7 @@ class LanguageModelAPIHandler(BaseHandler):
             self.chat.init_chat({"role": init_chat_role, "content": init_chat_prompt})
         self.working_event = Event()
 
-    def process(self, inputs: Dict[str, Union[str, int]]) -> Generator[Dict[str, Union[str, int, bool]], None, None]:
+    def process(self, inputs: Dict[str, Union[str, int]]) -> Dict[str, Union[str, int, bool]]:
         """
         Process the input acquired from queue_in (from ASR/STT) and generate the output of the language model API with
         the stream paradigm, i.e., yield the generated subtext in real-time.
@@ -1350,7 +1350,7 @@ class CosyVoiceTTSHandler(BaseHandler):
 
     def process(self,
                 llm_output: Dict[str, Union[str, int, bool]],
-                return_np: bool = True) -> Generator[Dict[str, Union[str, np.ndarray, int, bool]], None, None]:
+                return_np: bool = True) -> Dict[str, Union[str, np.ndarray, int, bool]]:
         """
         Process the input acquired from queue_in (from LLM) and generate the audio output of the TTS model with
         the stream paradigm, i.e., a long text sentence will be divided into several short sub-sentences to yield the
