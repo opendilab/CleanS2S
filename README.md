@@ -107,6 +107,8 @@ All the pipeline implementations are easy to modify and extend, and the user can
 
 ### 🎮 Real-time streaming interface
 
+![](assets/pipeline.png)
+
 The whole S2S pipeline is mainly composed of `ASR` (Automatic Speech Recognition, or named Speech to Text), `LLM` (Large Language Model), and `TTS` (Text to Speech), together with two `WebSockets` components Receiver (contains VAD) and Sender.
 The pipeline is designed to be real-time streaming, which means the user can interact with the agent in real-time like a human-to-human conversation. All the audio and text information is streamed sent and received through the WebSocket.
 To achieve this, we utilize multi-threading and queueing mechanisms to ensure the streaming process and avoid the blocking issue. All the components are designed to be asynchronous and non-blocking, processing the data from input queue and output result into another queue.
@@ -178,7 +180,7 @@ Here are 4 necessary models you need to download (3 ASR + 1 TTS), you can downlo
 
 For LLM, we use LLM API by default, you can also follow the instructions [here]() to customize your own local LLM (such as DeepSeek-V2.5, Qwen2.5, etc.).
 
-You also need to prepare a reference audio directory, which contains the reference audios for the prosody and timbre transfer. Here we prepare a [sample reference audio directory]() in this repository.
+You also need to prepare a reference audio directory, which contains the reference audios for the prosody and timbre transfer. Here we prepare a [sample reference audio directory](https://github.com/opendilab/CleanS2S/tree/main/backend/ref_audio) in this repository.
 If you want to use your own reference audio, you need to keep it in the same format as the sample reference audio directory. And the audio should be 10~20 seconds long with clear pronunciation.
 
 
