@@ -41,7 +41,7 @@ Here are some live conversation demos of CleanS2S:
 </td>
 <td align="center">
 
-[投资话题2](https://github.com/user-attachments/assets/65333528-b07c-42ab-9cb5-660b68b404c4)
+[投资话题2](https://github.com/user-attachments/assets/f6ee3bad-ddd0-404f-9995-088ac1902b11)
 
 </td>
 <td align="center">
