@@ -86,14 +86,14 @@
 
 - [大纲](#大纲)
 - [功能](#功能)
-- [快速入门](#快速入门)
-  - [后端（服务器）](#后端服务器)
-  - [前端（客户端）](#前端客户端)
-- [路线图](#路线图)
+- [快速上手](#快速上手)
+  - [后端（服务器）](#后端)
+  - [前端（客户端）](#前端)
+- [Roadmap](#Roadmap)
 - [支持与参与](#支持与参与)
 - [致谢](#致谢)
 - [引用 CleanS2S](#引用-CleanS2S)
-- [许可证](#许可证)
+- [License](#License)
 
 
 ## 功能
@@ -150,9 +150,9 @@
 </table>
 
 
-## 安装指导
+## 快速上手
 
-### 后端（服务器）
+### 后端
 
 #### 安装
 ```bash
@@ -170,7 +170,9 @@ pip install -r requirements.txt
 - ASR: [paraformer-zh](https://huggingface.co/funasr/paraformer-zh), [ct-punc](https://huggingface.co/funasr/ct-punc), [fsmn-vad](https://huggingface.co/funasr/fsmn-vad)
 - TTS: [CosyVoice-300M](https://github.com/FunAudioLLM/CosyVoice?tab=readme-ov-file#install)
 
-对于 LLM，我们默认使用 LLM API，您也可以按照[此处]()的说明定制自己的本地 LLM（如 DeepSeek-V2.5、Qwen2.5 等）。
+对于 LLM，我们默认使用 LLM API，您也可以按照下方的说明定制自己的本地 LLM（如 DeepSeek-V2.5、Qwen2.5 等）。
+
+> 删除 `--enable_llm_api` 和 `--lm_model_url` 参数，修改 `--lm_model_name` 参数为您的本地 LLM 模型路径（例如 `--lm_model_name /home/users/deepseek-v2.5`）。
 
 您还需要准备一个参考音频目录，其中包含用于韵律和音色转换的参考音频。我们在此仓库中准备了一个[示例参考音频目录](https://github.com/opendilab/CleanS2S/blob/main/backend/ref_audio)
 
@@ -242,7 +244,7 @@ python3 -u s2s_server_pipeline_rag.py \
 </details>
 
 
-### 前端 (客户端)
+### 前端
 
 我们建议使用`Docker镜像`来安装和运行客户端。以下是具体步骤：
 
@@ -271,7 +273,7 @@ pnpm dev --port 3001
 
 附注：如果您想在本地运行客户端，请首先安装 node.js 和 pnpm ，然后使用 pnpm 安装必要的包并运行客户端。
 
-## 路线图
+## Roadmap
 - [ ] 更多示例和评估工具
 - [ ] 更多提示和RAG策略
 - [ ] 自定义示例角色
@@ -286,11 +288,11 @@ pnpm dev --port 3001
 
 - [在Github上提交问题](https://github.com/opendilab/CleanS2S/issues/new/choose)
 - 在 CleanS2S 的[Discord频道](https://discord.gg/dkZS2JF56X)上讨论
-- 在 OpenDILab 的微信群中讨论（请加我们微信：ding314assist）
+- 在 OpenDILab 的微信群中讨论（请添加小助手微信：ding314assist）
 
 ## 致谢
-- 感谢 [speech-to-speech](https://github.com/huggingface/speech-to-speech) 首次开源英语语音到语音交互 pipeline。
-- 感谢 [funasr](https://github.com/modelscope/FunASR) 和 [CosyVoice] (https://github.com/FunAudioLLM/CosyVoice)开源高质量的中文ASR/TTS模型。
+- 感谢 [speech-to-speech](https://github.com/huggingface/speech-to-speech) 首次开源英文版的语音到语音交互 pipeline。
+- 感谢 [funasr](https://github.com/modelscope/FunASR) 和 [CosyVoice](https://github.com/FunAudioLLM/CosyVoice) 开源高质量的中文ASR/TTS模型。
 - 感谢 [HumeAI](https://github.com/HumeAI) 开源一系列前端组件。
 
 ## 引用 CleanS2S
@@ -304,6 +306,6 @@ pnpm dev --port 3001
 }
 ```
 
-## 许可证
+## License
 
 CleanS2S 根据 Apache 2.0 许可证发布。

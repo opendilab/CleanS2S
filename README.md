@@ -178,7 +178,9 @@ Here are 4 necessary models you need to download (3 ASR + 1 TTS), you can downlo
 - ASR: [paraformer-zh](https://huggingface.co/funasr/paraformer-zh), [ct-punc](https://huggingface.co/funasr/ct-punc), [fsmn-vad](https://huggingface.co/funasr/fsmn-vad)
 - TTS: [CosyVoice-300M](https://github.com/FunAudioLLM/CosyVoice?tab=readme-ov-file#install)
 
-For LLM, we use LLM API by default, you can also follow the instructions [here]() to customize your own local LLM (such as DeepSeek-V2.5, Qwen2.5, etc.).
+For LLM, we use LLM API by default, you can also follow the instructions below to customize your own local LLM (such as DeepSeek-V2.5, Qwen2.5, etc.).
+
+> delete the `--enable_llm_api` and `--lm_model_url` parameters, and modify the `--lm_model_name` parameter to your local LLM model path (e.g., `--lm_model_name /home/users/deepseek-v2.5`).
 
 You also need to prepare a reference audio directory, which contains the reference audios for the prosody and timbre transfer. Here we prepare a [sample reference audio directory](https://github.com/opendilab/CleanS2S/tree/main/backend/ref_audio) in this repository.
 If you want to use your own reference audio, you need to keep it in the same format as the sample reference audio directory. And the audio should be 10~20 seconds long with clear pronunciation.
