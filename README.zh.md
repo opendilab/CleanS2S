@@ -274,6 +274,7 @@ pnpm dev --port 3001
 附注：如果您想在本地运行客户端，请首先安装 node.js 和 pnpm ，然后使用 pnpm 安装必要的包并运行客户端。
 
 ## Roadmap
+- [x] 换声 (Voice Conversion) pipeline 支持（ASR + TTS）(即backend/vc_server_pipeline.py)
 - [ ] 更多示例和评估工具
 - [ ] 更多提示和RAG策略
 - [ ] 自定义示例角色

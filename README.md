@@ -283,6 +283,7 @@ Then you can visit the client at `http://localhost:3001` in your browser (Chrome
 P.S.: If you want to run the client locally, you should install node.js and pnpm first, then use pnmp to install the necessary packages and run the client.
 
 ## Roadmap
+- [x] Voice Conversion Pipeline (ASR + TTS) (i.e., backend/vc_server_pipeline.py)
 - [ ] More examples and evaluation utilities
 - [ ] More prompts and RAG strategies
 - [ ] Customized example characters

@@ -7,7 +7,7 @@ import { cn } from "@/utils";
 
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXTAUTH_URL || 'http://localhost:3001'),
-  title: "CleanS2s - Speech to Speech Agent",
+  title: "CleanS2S - Speech to Speech Agent",
   description: "CleanS2S next.js Interface",
   icons: {
     icon: '/favicon.ico',
