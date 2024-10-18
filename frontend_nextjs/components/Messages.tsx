@@ -7,6 +7,10 @@ import { BeatLoader } from 'react-spinners'
 import { cn } from "@/utils";
 import { useVoice } from "./VoiceProvider";
 
+var texts = {
+  agentName: process.env.NEXT_PUBLIC_AGENT_NAME || "感染力大师",
+};
+
 const Messages = forwardRef<
   ComponentRef<typeof motion.div>,
   Record<never, never>
@@ -59,7 +63,7 @@ const Messages = forwardRef<
                       "text-xs capitalize font-medium leading-none opacity-50 pt-4 px-3"
                     )}
                   >
-                    {msg.type == "user_message" ? "游客" : "感染力大师"}
+                    {msg.type == "user_message" ? "游客" : texts.agentName}
                   </div>
                   <div className={"pb-3 px-3"}>{content}</div>
                 </motion.div>
@@ -126,7 +130,7 @@ const Messages = forwardRef<
                       "text-xs capitalize font-medium leading-none opacity-50 pt-4 px-3"
                     )}
                   >
-                    {"感染力大师"}
+                    {texts.agentName}
                   </div>
                   <div className={"pb-3 px-3"}>
                     <BeatLoader color={isDarkMode ? "#fff" : "#000"} size={8} />

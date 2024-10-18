@@ -47,7 +47,7 @@ export default function StartCall() {
                     stroke={"currentColor"}
                   />
                 </span>
-                <span>开始交互</span>
+                <span>开始对话</span>
               </Button>
             </motion.div>
           </AnimatePresence>

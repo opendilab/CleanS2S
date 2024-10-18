@@ -90,7 +90,7 @@ export default function Controls() {
                   stroke={"currentColor"}
                 />
               </span>
-              <span>结束交互</span>
+              <span>结束对话</span>
             </Button>
           </motion.div>
     <p
