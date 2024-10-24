@@ -88,6 +88,7 @@ export const useSoundPlayer = (props: {
 }) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [isAudioMuted, setIsAudioMuted] = useState(false);
+  const [playedID, setPlayedID] = useState("placeholder")
   const [fft, setFft] = useState<number[]>(generateEmptyFft());
 
   const stopPlaybackRef = useRef<() => void>(null);
@@ -142,6 +143,7 @@ export const useSoundPlayer = (props: {
     }
     if (!nextClip) return;
 
+    setPlayedID(nextClip.id);
     isProcessing.current = true;
     setIsPlaying(true);
 
@@ -369,5 +371,6 @@ export const useSoundPlayer = (props: {
     clearQueue,
     downloadAudio,
     replayAudio,
+    playedID,
   };
 };
