@@ -1,10 +1,10 @@
 "use client";
 
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useVoice } from "./VoiceProvider";
 import { Button } from "./ui/button";
-import { Mic, MicOff, Phone } from "lucide-react";
+import { Mic, MicOff, Volume2, VolumeX, Phone, BadgePlus } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import { Toggle } from "./ui/toggle";
 import MicFFT from "./MicFFT";
@@ -14,7 +14,10 @@ import { cn } from "@/utils";
 export default function Controls() {
   const [isClicked, setIsClicked] = useState(false);
   const [color, setColor] = useState("currentColor");
-  const { disconnect, status, isMuted, unmute, mute, micFft } = useVoice();
+  const [audioColor, setAudioColor] = useState("currentColor")
+  // use useRef to avoid the "Maximum update depth exceeded" problem
+  const prevAudioColorRef = useRef(audioColor);
+  const { disconnect, status, isMuted, unmute, mute, micFft, isAudioMuted, unmuteAudio, muteAudio, fft, sendUserInput, clearCurrentTopic } = useVoice();
 
   useEffect(() => {
     setIsClicked(false);
@@ -29,6 +32,26 @@ export default function Controls() {
     }
   }, [micFft]);
 
+  useEffect(() => {
+    // fft is an array of 24 values
+    if (fft.some((v) => v > 0.5)) {
+      if (prevAudioColorRef.current != "#C1121F") {
+        setAudioColor("#C1121F");
+        prevAudioColorRef.current = "#C1121F"
+      }
+    } else {
+      if (prevAudioColorRef.current != "currentColor") {
+        setAudioColor("currentColor");
+        prevAudioColorRef.current = "currentColor"
+      }
+    }
+  }, [fft]);
+
+  const handleNewTopic = () => {
+    sendUserInput("new topic");
+    clearCurrentTopic();
+  } 
+
   return (
     <div
       className={
@@ -41,6 +64,10 @@ export default function Controls() {
       <AnimatePresence>
         {status.value === "connected" ? (
           <div className={"flex flex-col items-center"}>
+          <BadgePlus 
+            onClick={handleNewTopic}
+            className={"flex flex-row size-4 mb-2 justify-start border-none shadow-xl rounded-lg bg-accent h-8 w-8 p-1"}
+          />
           <motion.div
             initial={{
               y: "100%",
@@ -75,7 +102,24 @@ export default function Controls() {
               )}
             </Toggle>
 
-            <div className={"relative grid h-8 w-40 shrink grow-0"}>
+            <Toggle
+              pressed={!isAudioMuted}
+              onPressedChange={() => {
+                if (isAudioMuted) {
+                  unmuteAudio();
+                } else {
+                  muteAudio();
+                }
+              }}
+            >
+              {isAudioMuted ? (
+                <VolumeX className={"size-4"} />
+              ) : (
+                <Volume2 className={"size-4"} color={audioColor}/>
+              )}
+            </Toggle>
+
+            <div className={"relative grid h-8 w-32 shrink grow-0"}>
               <MicFFT fft={micFft} className={"fill-current"} />
             </div>
 

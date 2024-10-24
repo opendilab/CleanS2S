@@ -79,6 +79,7 @@ export type VoiceContextType = {
   isSocketError: boolean;
   callDurationTimestamp: string | null;
   chatMetadata: ChatMetadata | null;
+  clearCurrentTopic: () => void;
 };
 
 const VoiceContext = createContext<VoiceContextType | null>(null);
@@ -308,6 +309,13 @@ export const VoiceProvider: FC<VoiceProviderProps> = ({
     messageStore,
   ]);
 
+  const clearCurrentTopic = useCallback(() => {
+    player.stopAll();
+    if (clearMessagesOnDisconnect) {
+      messageStore.clearMessages();
+    }
+  }, []);
+
   const disconnect = useCallback(
     (disconnectOnError?: boolean) => {
       if (micPermission === 'denied') {
@@ -382,6 +390,7 @@ export const VoiceProvider: FC<VoiceProviderProps> = ({
         isSocketError,
         callDurationTimestamp,
         chatMetadata: messageStore.chatMetadata,
+        clearCurrentTopic: clearCurrentTopic,
       }) satisfies VoiceContextType,
     [
       connect,
@@ -416,6 +425,7 @@ export const VoiceProvider: FC<VoiceProviderProps> = ({
       isSocketError,
       callDurationTimestamp,
       messageStore.chatMetadata,
+      clearCurrentTopic,
     ],
   );
 
