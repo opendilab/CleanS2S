@@ -4,6 +4,8 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { ComponentRef, forwardRef, useState } from "react";
 import { BeatLoader } from 'react-spinners'
+import { ArrowDownToLine, Repeat } from "lucide-react";
+import { Tooltip } from 'react-tooltip'
 import { cn } from "@/utils";
 import { useVoice } from "./VoiceProvider";
 
@@ -15,7 +17,7 @@ const Messages = forwardRef<
   ComponentRef<typeof motion.div>,
   Record<never, never>
 >(function Messages(_, ref) {
-  const { messages } = useVoice();
+  const { messages, downloadAudio, replayAudio } = useVoice();
   const el = document.documentElement;
   const isDarkMode = el.classList.contains("dark");
 
@@ -65,7 +67,22 @@ const Messages = forwardRef<
                   >
                     {msg.type == "user_message" ? "游客" : texts.agentName}
                   </div>
-                  <div className={"pb-3 px-3"}>{content}</div>
+                  <div className="pb-1 px-3 flex flex-col">
+                    {content}
+                    {msg.type == "assistant_message" && (
+                    <div className="mt-auto ml-auto flex justify-between opacity-80">
+                        <Tooltip id="my-tooltip" />
+                        <ArrowDownToLine 
+                          onClick={() => {downloadAudio(msg.id)}} 
+                          size={14} style={{ marginRight: '0.75rem' }} data-tooltip-id="my-tooltip" data-tooltip-content="下载" data-tooltip-place="down"
+                        />
+                        <Repeat
+                          onClick={() => {replayAudio(msg.id)}}
+                          size={14} data-tooltip-id="my-tooltip" data-tooltip-content="重放" data-tooltip-place="down"
+                        />
+                    </div>
+                    )}
+                  </div>
                 </motion.div>
               );
             } else if (msg.type === "user_vad_message" && index === messages.length - 1) {

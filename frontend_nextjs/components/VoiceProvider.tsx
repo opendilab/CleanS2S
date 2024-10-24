@@ -61,6 +61,8 @@ export type VoiceContextType = {
   unmute: () => void;
   muteAudio: () => void;
   unmuteAudio: () => void;
+  downloadAudio: (aid: string) => void;
+  replayAudio: (aid: string) => void;
   readyState: VoiceReadyState;
   sendUserInput: (text: string) => void;
   sendAssistantInput: (text: string) => void;
@@ -360,6 +362,8 @@ export const VoiceProvider: FC<VoiceProviderProps> = ({
         clearMessages: messageStore.clearMessages,
         mute: mic.mute,
         muteAudio: player.muteAudio,
+        downloadAudio: player.downloadAudio,
+        replayAudio: player.replayAudio,
         readyState: client.readyState,
         sendUserInput: client.sendUserInput,
         sendAssistantInput: client.sendAssistantInput,
@@ -385,6 +389,8 @@ export const VoiceProvider: FC<VoiceProviderProps> = ({
       player.isAudioMuted,
       player.muteAudio,
       player.unmuteAudio,
+      player.downloadAudio,
+      player.replayAudio,
       mic.fft,
       mic.isMuted,
       mic.mute,

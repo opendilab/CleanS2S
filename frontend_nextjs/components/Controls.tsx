@@ -13,11 +13,21 @@ import { cn } from "@/utils";
 
 export default function Controls() {
   const [isClicked, setIsClicked] = useState(false);
+  const [color, setColor] = useState("currentColor");
   const { disconnect, status, isMuted, unmute, mute, micFft } = useVoice();
 
   useEffect(() => {
     setIsClicked(false);
   }, [status.value]);
+
+  useEffect(() => {
+    // micFFT is an array of 24 values
+    if (micFft.some((v) => v > 1)) {
+      setColor("#C1121F");
+    } else {
+      setColor("currentColor");
+    }
+  }, [micFft]);
 
   return (
     <div
@@ -61,7 +71,7 @@ export default function Controls() {
               {isMuted ? (
                 <MicOff className={"size-4"} />
               ) : (
-                <Mic className={"size-4"} />
+                <Mic className={"size-4"} color={color}/>
               )}
             </Toggle>
 

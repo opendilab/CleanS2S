@@ -21,6 +21,67 @@ export function convertBase64ToBlob(base64: string, contentType: string): Blob {
   return new Blob([byteArray], { type: contentType });
 }
 
+
+function downloadWav(audioBuffer: AudioBuffer, fileName: string) {
+  const wavData = audioBufferToWav(audioBuffer);
+
+  const blob = new Blob([wavData], { type: 'audio/wav' });
+
+  const url = URL.createObjectURL(blob);
+
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = fileName;
+  document.body.appendChild(a);
+  a.click();
+
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+function audioBufferToWav(audioBuffer: AudioBuffer) {
+  const numChannels = audioBuffer.numberOfChannels;
+  const sampleRate = audioBuffer.sampleRate;
+  const bufferLength = audioBuffer.length;
+
+  const arrayBuffer = new ArrayBuffer(44 + bufferLength * numChannels * 2);
+  const view = new DataView(arrayBuffer);
+
+  writeString(view, 0, 'RIFF');
+  view.setUint32(4, 32 + bufferLength * numChannels * 2, true);
+  writeString(view, 8, 'WAVE');
+  writeString(view, 12, 'fmt ');
+  view.setUint32(16, 16, true);
+  view.setUint16(20, 1, true);
+  view.setUint16(22, numChannels, true);
+  view.setUint32(24, sampleRate, true);
+  view.setUint32(28, sampleRate * numChannels * 2, true);
+  view.setUint16(32, numChannels * 2, true);
+  view.setUint16(34, 16, true);
+  writeString(view, 36, 'data');
+  view.setUint32(40, bufferLength * numChannels * 2, true);
+
+  const channelData = new Float32Array(bufferLength);
+  for (let channel = 0; channel < numChannels; channel++) {
+    const channelBuffer = audioBuffer.getChannelData(channel);
+    for (let i = 0; i < bufferLength; i++) {
+      channelData[i] = channelBuffer[i];
+    }
+    for (let i = 0; i < bufferLength; i++) {
+      const sample = Math.max(-1, Math.min(1, channelData[i]));
+      view.setInt16(44 + (i * numChannels + channel) * 2, sample < 0 ? sample * 0x8000 : sample * 0x7FFF, true);
+    }
+  }
+
+  return arrayBuffer;
+}
+
+function writeString(view: DataView, offset: number, str: string) {
+  for (let i = 0; i < str.length; i++) {
+    view.setUint8(offset + i, str.charCodeAt(i));
+  }
+}
+
 export const useSoundPlayer = (props: {
   onError: (message: string) => void;
   onPlayAudio: (id: string) => void;
@@ -29,12 +90,19 @@ export const useSoundPlayer = (props: {
   const [isAudioMuted, setIsAudioMuted] = useState(false);
   const [fft, setFft] = useState<number[]>(generateEmptyFft());
 
+  const stopPlaybackRef = useRef<() => void>(null);
   const audioContext = useRef<AudioContext | null>(null);
   const analyserNode = useRef<AnalyserNode | null>(null);
   const gainNode = useRef<GainNode | null>(null);
   const isInitialized = useRef(false);
 
   const clipQueue = useRef<
+    Array<{
+      id: string;
+      buffer: AudioBuffer;
+    }>
+  >([]);
+  const historyClipQueue = useRef<
     Array<{
       id: string;
       buffer: AudioBuffer;
@@ -52,17 +120,26 @@ export const useSoundPlayer = (props: {
   const onError = useRef<typeof props.onError>(props.onError);
   onError.current = props.onError;
 
-  const playNextClip = useCallback(() => {
+  const playNextClip = useCallback((targetClip: {id: string, buffer: AudioBuffer} = null) => {
     if (analyserNode.current === null || audioContext.current === null) {
       onError.current('Audio environment is not initialized');
       return;
     }
 
-    if (clipQueue.current.length === 0 || isProcessing.current) {
+    if (!targetClip && (clipQueue.current.length === 0 || isProcessing.current)) {
       return;
     }
 
-    const nextClip = clipQueue.current.shift();
+    var nextClip = null;
+    if (targetClip) {
+        nextClip = targetClip;
+        // stop the current audio buffer if it's playing
+        if (stopPlaybackRef) {
+          stopPlaybackRef.current();
+        }
+    } else {
+        nextClip = clipQueue.current.shift();
+    }
     if (!nextClip) return;
 
     isProcessing.current = true;
@@ -75,6 +152,7 @@ export const useSoundPlayer = (props: {
     bufferSource.buffer = nextClip.buffer;
 
     bufferSource.connect(analyserNode.current);
+    stopPlaybackRef.current = () => {bufferSource.stop()}
 
     currentlyPlayingAudioBuffer.current = bufferSource;
 
@@ -171,6 +249,10 @@ export const useSoundPlayer = (props: {
           id: message.id,
           buffer: audioBuffer,
         });
+        historyClipQueue.current.push({
+          id: message.id,
+          buffer: audioBuffer,
+        });
 
         // playNextClip will iterate the clipQueue upon finishing the playback of the current audio clip, so we can
         // just call playNextClip here if it's the only one in the queue
@@ -219,6 +301,7 @@ export const useSoundPlayer = (props: {
     }
 
     clipQueue.current = [];
+    historyClipQueue.current = [];
     setFft(generateEmptyFft());
   }, []);
 
@@ -228,6 +311,7 @@ export const useSoundPlayer = (props: {
       currentlyPlayingAudioBuffer.current = null;
     }
 
+    // don't clear historyClipQueue in this callback
     clipQueue.current = [];
     isProcessing.current = false;
     setIsPlaying(false);
@@ -248,6 +332,30 @@ export const useSoundPlayer = (props: {
     }
   }, []);
 
+  const downloadAudio = useCallback((aid: string) => {
+    const foundClip = historyClipQueue.current.find(clip => clip.id === aid);
+
+    if (foundClip) {
+      downloadWav(foundClip.buffer, `audio_${aid}_${Date.now()}.wav`);
+    } else {
+      console.log("Clip not found", aid);
+    }
+  }, [])
+
+  const replayAudio = useCallback((aid: string) => {
+    if (clipQueue.current.length !== 0) {
+      console.log("Can't replay audio when agent is playing")
+      return;
+    }
+    const foundClip = historyClipQueue.current.find(clip => clip.id === aid);
+
+    if (foundClip) {
+      playNextClip(foundClip);
+    } else {
+      console.log("Clip not found", aid);
+    }
+  }, [])
+
   return {
     addToQueue,
     fft,
@@ -258,5 +366,7 @@ export const useSoundPlayer = (props: {
     unmuteAudio,
     stopAll,
     clearQueue,
+    downloadAudio,
+    replayAudio,
   };
 };
