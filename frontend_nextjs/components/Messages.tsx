@@ -73,11 +73,11 @@ const Messages = forwardRef<
                     <div className="mt-auto ml-auto flex justify-between opacity-80">
                         <Tooltip id="my-tooltip" />
                         <ArrowDownToLine 
-                          onClick={() => {downloadAudio(msg.id)}} 
+                          onClick={() => {downloadAudio(msg.id || "")}} 
                           size={14} style={{ marginRight: '0.75rem' }} data-tooltip-id="my-tooltip" data-tooltip-content="下载" data-tooltip-place="down"
                         />
                         <Repeat
-                          onClick={() => {replayAudio(msg.id)}}
+                          onClick={() => {replayAudio(msg.id || "")}}
                           size={14} data-tooltip-id="my-tooltip" data-tooltip-content="重放" data-tooltip-place="down"
                         />
                     </div>

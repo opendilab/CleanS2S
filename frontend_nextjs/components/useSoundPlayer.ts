@@ -120,7 +120,7 @@ export const useSoundPlayer = (props: {
   const onError = useRef<typeof props.onError>(props.onError);
   onError.current = props.onError;
 
-  const playNextClip = useCallback((targetClip: {id: string, buffer: AudioBuffer} = null) => {
+  const playNextClip = useCallback((targetClip?: {id: string, buffer: AudioBuffer}) => {
     if (analyserNode.current === null || audioContext.current === null) {
       onError.current('Audio environment is not initialized');
       return;
@@ -134,7 +134,7 @@ export const useSoundPlayer = (props: {
     if (targetClip) {
         nextClip = targetClip;
         // stop the current audio buffer if it's playing
-        if (stopPlaybackRef) {
+        if (stopPlaybackRef.current) {
           stopPlaybackRef.current();
         }
     } else {
@@ -152,6 +152,7 @@ export const useSoundPlayer = (props: {
     bufferSource.buffer = nextClip.buffer;
 
     bufferSource.connect(analyserNode.current);
+    // @ts-ignore
     stopPlaybackRef.current = () => {bufferSource.stop()}
 
     currentlyPlayingAudioBuffer.current = bufferSource;
