@@ -76,7 +76,7 @@ const Messages = forwardRef<
                     <div className={"flex flex-row h-12 w-4/5 p-1 items-center border rounded-lg"} style={{ marginTop: '0.5rem', marginBottom: '0.5rem'}}>
                       <AudioLines 
                         onClick={() => {replayAudio(msg.id || "")}}
-                        size={20} className="rounded-md shadow-md hover:bg-muted" style={{ marginRight: '0.5rem' , marginLeft: '0.5rem'}}
+                        size={20} className="rounded-md shadow-md hover:bg-muted cursor-pointer" style={{ marginRight: '0.5rem' , marginLeft: '0.5rem'}}
                       />
                       <div className={"relative grid h-8 w-40 shrink grow-0"}>
                         <MicFFT fft={playedID === msg.id ? fft : emptyFft} className={"fill-current"} />
@@ -88,11 +88,11 @@ const Messages = forwardRef<
                         <Tooltip id="my-tooltip" />
                         <ArrowDownToLine 
                           onClick={() => {downloadAudio(msg.id || "")}} 
-                          className="hover:bg-muted"
+                          className="hover:bg-muted cursor-pointer"
                           size={14} style={{ marginRight: '0.75rem' }} data-tooltip-id="my-tooltip" data-tooltip-content="下载" data-tooltip-place="down"
                         />
                         <ThumbsUp
-                          className="hover:bg-muted"
+                          className="hover:bg-muted cursor-pointer"
                           size={14} data-tooltip-id="my-tooltip" data-tooltip-content="赞" data-tooltip-place="down"
                         />
                     </div>

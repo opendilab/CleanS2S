@@ -1,10 +1,11 @@
 "use client";
 
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, ChangeEvent } from 'react';
+import Textarea from 'react-textarea-autosize'
 import { useVoice } from "./VoiceProvider";
 import { Button } from "./ui/button";
-import { Mic, MicOff, Volume2, VolumeX, Phone, BadgePlus } from "lucide-react";
+import { Mic, MicOff, Volume2, VolumeX, Phone, BadgePlus, MessageSquareMore, CornerDownLeft } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import { Toggle } from "./ui/toggle";
 import MicFFT from "./MicFFT";
@@ -13,10 +14,24 @@ import { cn } from "@/utils";
 
 export default function Controls() {
   const [isClicked, setIsClicked] = useState(false);
+  const [enableTyping, setEnableTyping] = useState(false);
   const [color, setColor] = useState("currentColor");
   const [audioColor, setAudioColor] = useState("currentColor")
   // use useRef to avoid the "Maximum update depth exceeded" problem
   const prevAudioColorRef = useRef(audioColor);
+  const [input, setInput] = useState("");
+  const inputRef = useRef<HTMLTextAreaElement>(null)
+
+  useEffect(() => {
+    if (inputRef.current) {
+      inputRef.current.focus()
+    }
+  }, [])
+  const handleInputChange = async (event: ChangeEvent<HTMLTextAreaElement>) => {
+    const value = event.target.value;
+    setInput(value)
+  }
+
   const { disconnect, status, isMuted, unmute, mute, micFft, isAudioMuted, unmuteAudio, muteAudio, fft, sendUserInput, clearCurrentTopic } = useVoice();
 
   useEffect(() => {
@@ -52,6 +67,22 @@ export default function Controls() {
     clearCurrentTopic();
   } 
 
+  const handleEnableTyping = () => {
+    if (enableTyping) {
+      unmute();
+    } else {
+      mute();
+    }
+    setEnableTyping(!enableTyping);
+  }
+
+  const handleSubmit = () => {
+    if (input.length > 0) {
+      sendUserInput(input);
+      setInput("");
+    }
+  };
+
   return (
     <div
       className={
@@ -64,10 +95,16 @@ export default function Controls() {
       <AnimatePresence>
         {status.value === "connected" ? (
           <div className={"flex flex-col items-center"}>
+          <div className="flex flex-row items-center gap-4">
           <BadgePlus 
             onClick={handleNewTopic}
-            className={"flex flex-row size-4 mb-2 justify-start border-none shadow-xl rounded-lg bg-accent h-8 w-8 p-1"}
+            className={"flex flex-row size-4 mb-2 justify-start border-none shadow-xl rounded-lg bg-accent h-8 w-8 p-1 cursor-pointer"}
           />
+          <MessageSquareMore
+            onClick={handleEnableTyping}
+            className={"flex flex-row size-4 mb-2 justify-start border-none shadow-xl rounded-lg bg-accent h-8 w-8 p-1 cursor-pointer"}
+          />
+          </div>
           <motion.div
             initial={{
               y: "100%",
@@ -85,6 +122,8 @@ export default function Controls() {
               "p-4 bg-card border border-border rounded-lg shadow-sm flex items-center gap-1"
             }
           >
+          <div className="flex flex-col items-center gap-2">
+            <div className="flex flex-row items-center gap-2">
             <Toggle
               pressed={!isMuted}
               onPressedChange={() => {
@@ -146,6 +185,31 @@ export default function Controls() {
               </span>
               <span>结束对话</span>
             </Button>
+            </div>
+
+          {enableTyping && (
+            <div className="relative flex max-h-60 w-full grow flex-col overflow-hidden bg-background pr-8 sm:rounded-md border">
+              <Textarea
+                ref={inputRef}
+                tabIndex={0}
+                rows={1}
+                value={input}
+                onChange={handleInputChange}
+                placeholder={"一字胜万言~输入完成后点击按钮发送"}
+                spellCheck={false}
+                className="min-h-[60px] max-h-[90px] overflow-auto w-full resize-none bg-transparent px-4 py-[1.3rem] focus-within:outline-none sm:text-sm"
+              />
+              <div className="absolute right-2 top-1/2 transform -translate-y-1/2">
+                <CornerDownLeft
+                  onClick={handleSubmit}
+                  size={32}
+                  color={"currentColor"}
+                  className="bg-secondary p-2 rounded-lg cursor-pointer"
+                />
+              </div>
+            </div>
+          )}
+          </div>
           </motion.div>
     <p
       className={cn(
