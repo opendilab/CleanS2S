@@ -65,6 +65,7 @@ export declare namespace ChatSocket {
   interface Args {
     sendSocket: ReconnectingWebSocket;
     recvSocket: ReconnectingWebSocket;
+    uuid: string;
   }
 
   type Response = SubscribeEvent & { receivedAt: Date };
@@ -86,11 +87,13 @@ export class ChatSocket {
   protected readonly sendEventHandlers: ChatSocket.EventHandlers = {};
   protected readonly recvEventHandlers: ChatSocket.EventHandlers = {};
 
+  private uuid: string;
   private idCount: number;
 
-  constructor({ sendSocket, recvSocket }: ChatSocket.Args) {
+  constructor({ sendSocket, recvSocket, uuid }: ChatSocket.Args) {
     this.sendSocket = sendSocket;
     this.recvSocket = recvSocket;
+    this.uuid = uuid;
     this.sendReadyState = sendSocket.readyState;
     this.recvReadyState = recvSocket.readyState;
 
@@ -124,12 +127,16 @@ export class ChatSocket {
    * Send audio input
    */
   public sendAudioInput(
-    message: Omit<AudioInput, 'type'>,
+    arrayBuffer: ArrayBufferLike, isPlaying: boolean
   ): void {
     this.assertSocketIsOpen();
+    const buffer = Buffer.from(arrayBuffer.buffer);
+    const base64String = buffer.toString('base64');
     this.sendJson({
       type: 'audio_input',
-      ...message,
+      uid: this.uuid,
+      audio: base64String,
+      is_playing: isPlaying.toString(),
     });
   }
 
@@ -192,7 +199,8 @@ export class ChatSocket {
     this.assertSocketIsOpen();
     this.sendJson({
       type: 'user_input',
-      text,
+      uid: this.uuid,
+      text: text,
     });
   }
 

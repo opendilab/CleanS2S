@@ -31,7 +31,7 @@ const Messages = forwardRef<
       ref={ref}
     >
       <motion.div
-        className={"max-w-2xl mx-auto w-full flex flex-col gap-4 pb-24"}
+        className={"max-w-2xl mx-auto w-full flex flex-col gap-4 pb-48"}
       >
         <AnimatePresence mode={"popLayout"}>
           {messages.map((msg, index) => {

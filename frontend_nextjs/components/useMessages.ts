@@ -91,6 +91,7 @@ export const useMessages = ({
           });
           break;
         case 'user_vad_message':
+        case 'assistant_notend_message':
           sendMessageToParent?.(message);
           setMessages((prev) => {
             return keepLastN(messageHistoryLimit, prev.concat([message]));

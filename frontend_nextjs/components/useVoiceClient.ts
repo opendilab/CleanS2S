@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useRef, useState } from 'react';
+import { v4 as uuidv4 } from 'uuid';
 import { AudioOutput, JsonMessage, AssistantMessage, UserMessage, SessionSettings } from './types';
 import { ChatSocket } from './ChatSocket';
 import { ReconnectingWebSocket } from './WebSocket';
@@ -66,7 +67,8 @@ export const useVoiceClient = (props: {
     return new Promise((resolve, reject) => {
       const sendSocket = new ReconnectingWebSocket(`${config.sendHostname}`);
       const recvSocket = new ReconnectingWebSocket(`${config.recvHostname}`);
-      client.current = new ChatSocket({ sendSocket, recvSocket })
+      const uuid = uuidv4();
+      client.current = new ChatSocket({ sendSocket, recvSocket, uuid })
 
       client.current.on('open', () => {
         onOpen.current?.();
@@ -176,12 +178,38 @@ export const useVoiceClient = (props: {
   );
 
   const sendAudio = useCallback((arrayBuffer: ArrayBufferLike, isPlaying: boolean) => {
-    client.current?.sendSocket?.send(arrayBuffer);
-    client.current?.sendSocket?.send(isPlaying.toString());
+    client.current?.sendAudioInput(arrayBuffer, isPlaying);
   }, []);
 
   const sendUserInput = useCallback((text: string) => {
     client.current?.sendUserInput(text);
+    if (text === 'new topic') {
+      return
+    }
+    const questionMessage: UserMessage = {
+        type: 'user_message',
+        fromText: false,
+        message: {
+          role: 'user',
+          content: text,
+        },
+        receivedAt: new Date(),
+    };
+    // @ts-ignore
+    onMessage.current?.(questionMessage);
+    const notEndMessage: AssistantMessage = {
+        type: 'assistant_notend_message',
+        id: 'notend begin',
+        fromText: false,
+        message: {
+          role: 'assistant',
+          content: '',
+        },
+        receivedAt: new Date(),
+        end: false,
+    };
+    // @ts-ignore
+    onMessage.current?.(notEndMessage);
   }, []);
 
   const sendAssistantInput = useCallback((text: string) => {
