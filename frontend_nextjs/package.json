@@ -13,6 +13,7 @@
     "@radix-ui/react-switch": "^1.0.3",
     "@radix-ui/react-toggle": "^1.0.3",
     "@types/react-virtualized": "^9.21.30",
+    "@types/uuid": "^10.0.0",
     "@types/ws": "^8.5.12",
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.1",
