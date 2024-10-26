@@ -88,12 +88,14 @@ export class ChatSocket {
   protected readonly recvEventHandlers: ChatSocket.EventHandlers = {};
 
   private uuid: string;
+  private questionCount: number;
   private idCount: number;
 
   constructor({ sendSocket, recvSocket, uuid }: ChatSocket.Args) {
     this.sendSocket = sendSocket;
     this.recvSocket = recvSocket;
     this.uuid = uuid;
+    this.questionCount = 0;
     this.sendReadyState = sendSocket.readyState;
     this.recvReadyState = recvSocket.readyState;
 
@@ -130,6 +132,7 @@ export class ChatSocket {
     arrayBuffer: ArrayBufferLike, isPlaying: boolean
   ): void {
     this.assertSocketIsOpen();
+    // @ts-ignore
     const buffer = Buffer.from(arrayBuffer.buffer);
     const base64String = buffer.toString('base64');
     this.sendJson({
@@ -202,6 +205,7 @@ export class ChatSocket {
       uid: this.uuid,
       text: text,
     });
+    this.questionCount += 1;
   }
 
   /**
@@ -292,6 +296,7 @@ export class ChatSocket {
         question: "",
         answer: "",
       };
+      this.questionCount += 1
       // @ts-ignore
       this.sendEventHandlers.message?.(output);
     }
@@ -299,6 +304,14 @@ export class ChatSocket {
 
   private handleRecvMessage = (event: { data: string }): void => {
     const jsonData = JSON.parse(event.data);
+    const recvUuid = jsonData.uid
+    if (recvUuid !== this.uuid) {
+      return;
+    }
+    const answerCount = parseInt(jsonData.user_input_count)
+    if (this.questionCount !== answerCount) {
+      return;
+    }
     const audioBase64 = jsonData.answer_audio;
     const audioBytes = Uint8Array.from(atob(audioBase64), c => c.charCodeAt(0));
     const dataView = new DataView(audioBytes.buffer);
