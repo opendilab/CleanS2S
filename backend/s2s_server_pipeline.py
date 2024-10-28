@@ -52,6 +52,8 @@ logger = logging.getLogger(__name__)
 logger.setLevel(level=logging.INFO)
 logger.info(f'BEGIN LOGGER {__name__}')
 console = Console()
+global pipeline_start
+pipeline_start = None
 
 
 class ThreadManager:
@@ -1376,13 +1378,12 @@ class CosyVoiceTTSHandler(BaseHandler):
 
         torch.cuda.synchronize()
         start_event.record()
-        self.ref = random.choice(self.ref_list)
         for item in self.ref_list:
             ref_wav_path = os.path.join(self.input_folder, 'ref_wav', item['ref_wav_path'])
             prompt_speech_16k = load_wav(ref_wav_path, 16000)
             tts_gen_kwargs = dict(
                 tts_text="收到好友从远方寄来的生日礼物，那份意外的惊喜与深深的祝福让我心中充满了甜蜜的快乐，笑容如花儿般绽放。",
-                prompt_text=self.ref['prompt_text'],
+                prompt_text=item['prompt_text'],
                 prompt_speech_16k=prompt_speech_16k,
                 stream=False,
             )
@@ -1402,7 +1403,7 @@ class CosyVoiceTTSHandler(BaseHandler):
         the stream paradigm, i.e., a long text sentence will be divided into several short sub-sentences to yield the
         generated sub-audio in real-time.
         Arguments:
-            - inputs (Dict[str, Union[str, int]]): The input data acquired from queue_in. The data contains the \
+            - inputs (Dict[str, Union[str, int, bool]]): The input data acquired from queue_in. The data contains the \
                 str format LLM output and user id (uid), bool end flag for LLM generation, and integer user input count.
         Returns (Yield):
             - output (Dict[str, Union[str, np.ndarray, int, bool]]): The output data containing the transcripted \
@@ -1474,8 +1475,9 @@ class CosyVoiceTTSHandler(BaseHandler):
                 break
             end_flag = inputs['end_flag'] and i == total_cnt - 1
             if i == 0:
-                # logger.info(f"[green]{time.ctime()}\tTime to first user audio input: {perf_counter() - pipeline_start:.3f}")
-                # console.print(f"[green]{time.ctime()}\tTime to first user audio input: {perf_counter() - pipeline_start:.3f}")
+                if pipeline_start is not None:
+                    logger.info(f"[green]{time.ctime()}\tTime to first user audio input: {perf_counter() - pipeline_start:.3f}")
+                    console.print(f"[green]{time.ctime()}\tTime to first user audio input: {perf_counter() - pipeline_start:.3f}")
                 yield {
                     'question_text': inputs['question_text'],
                     'answer_text': inputs['answer_text'],

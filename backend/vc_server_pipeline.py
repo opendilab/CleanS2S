@@ -50,6 +50,8 @@ logger = logging.getLogger(__name__)
 logger.setLevel(level=logging.INFO)
 logger.info(f'BEGIN LOGGER {__name__}')
 console = Console()
+global pipeline_start
+pipeline_start = None
 
 
 class ThreadManager:
@@ -369,10 +371,11 @@ class SocketVADReceiver:
         self.should_listen.set()
         while not self.stop_event.is_set():
             try:
+                # res is naive string or json string
                 res = await ws.recv()
 
-                # for forward server
-                if isinstance(res, str) and res.startswith("ConnectionClosedError"):
+                # only for forward server: naive string
+                if res.startswith("ConnectionClosedError"):
                     logger.error(
                         f"(forward)Receiver WebSocket conn error closed. Should listen {self.should_listen.is_set()}"
                     )
@@ -380,7 +383,8 @@ class SocketVADReceiver:
                     self.cur_conn_end_event.set()
                     self.restart()
                     break
-                elif isinstance(res, str) and res.startswith("ConnectionClosedOK"):
+                # only for forward server
+                elif res.startswith("ConnectionClosedOK"):
                     logger.info(
                         f"(forward)Receiver WebSocket connection OK closed. Should listen {self.should_listen.is_set()}"
                     )
@@ -388,21 +392,45 @@ class SocketVADReceiver:
                     self.user_input_count = 0
                     self.cur_conn_end_event.set()
                     continue
-                # when res is a string, it is a indication of the frontend playing status.
-                elif isinstance(res, str) and res in ['true', 'false']:
-                    # logger.info(f'set frontend_is_playing: {res}')
-                    self.frontend_is_playing = (res == 'true')
-                    await ws.send(json.dumps({"placeholder": ""}))
-                    continue
 
-                if self.should_listen.is_set():
-                    for i in range(len(res) // self.chunk_size):
-                        data = res[i * self.chunk_size:(i + 1) * self.chunk_size]
-                        vad_result = self.vad(data)
-                        if vad_result is not None:
-                            self.user_input_count += 1
-                            self.queue_out.put({"data": vad_result, "user_input_count": self.user_input_count})
-                await ws.send(json.dumps({"placeholder": ""}))
+                # normal case: json string
+                json_data = json.loads(res)
+                uid = json_data["uid"]
+                # is_playing is a indication of the frontend playing status.
+                is_playing = json_data.get("is_playing", "placeholder")
+                if is_playing in ['true', 'false']:
+                    # logger.info(f'set frontend_is_playing: {res}')
+                    self.frontend_is_playing = (is_playing == 'true')
+
+                text = json_data.get("text")
+                audio = json_data.get("audio")
+
+                # user directly send text question
+                if text is not None:
+                    # when res equals 'new topic', it means that we should clear the chat history.
+                    if text == 'new topic':
+                        await ws.send(json.dumps({"placeholder": ""}))
+                        self.user_input_count = 0
+                        self.cur_conn_end_event.set()
+                    else:
+                        self.user_input_count += 1
+                        self.queue_out.put({"data": text, "user_input_count": self.user_input_count, "uid": uid})
+                        # If text string is detected and frontend is playing, trigger the user interruption
+                        await ws.send(json.dumps({"placeholder": ""}))
+                elif audio is not None:
+                    vad = False
+                    audio = base64.b64decode(audio)
+                    if self.should_listen.is_set():
+                        for i in range(len(audio) // self.chunk_size):
+                            data = audio[i * self.chunk_size:(i + 1) * self.chunk_size]
+                            vad_result = self.vad(data)
+                            if vad_result is not None:
+                                self.user_input_count += 1
+                                self.queue_out.put({"data": vad_result, "user_input_count": self.user_input_count, "uid": uid})
+                                await ws.send(json.dumps({"return_info": "VAD detected"}))
+                                vad = True
+                    if not vad:
+                        await ws.send(json.dumps({"placeholder": ""}))
             except websockets.ConnectionClosedError as e:
                 logger.error(f"Receiver WebSocket connection error closed: {e}")
                 self.cur_conn_end_event.set()
@@ -683,35 +711,41 @@ class ParaFormerSTTHandler(BaseHandler):
         """
         raise NotImplementedError
 
-    def process(self, inputs: Dict[str, Union[np.ndarray, int]]) -> Dict[str, Union[str, int]]:
+    def process(self, inputs: Dict[str, Union[np.ndarray, str, int]]) -> Dict[str, Union[str, int, bool]]:
         """
         Process the input acquired from queue_in (from SocketVADReceiver) and generate the ASR output with Paraformer.
         Arguments:
-            - inputs (Dict[str, Union[np.ndarray, int]]): The input data acquired from queue_in. The data contains the \
-                np.ndarray format audio data and integer user input count.
+            - inputs (Dict[str, Union[np.ndarray, str, int]]): The input data acquired from queue_in. The data \
+                contains the np.ndarray format audio data, string user id (uid) and integer user input count.
         Returns (Yield):
-            - output (Dict[str, Union[str, int]]): The output data containing the ASR result and user input count.
+            - output (Dict[str, Union[str, int, bool]]): The output data containing the ASR result, user id, bool flag \
+                about audio/text input and user input count.
         """
         logger.info("inference ASR pacaformer...")
-        spoken_prompt, user_input_count = inputs["data"], inputs["user_input_count"]
+        spoken_prompt, user_input_count, uid = inputs["data"], inputs["user_input_count"], inputs["uid"]
 
         global pipeline_start
         pipeline_start = perf_counter()
+        
+        # user directly send text question
+        if isinstance(spoken_prompt, str):
+            console.print(f"[yellow]{time.ctime()}\tUSER: {spoken_prompt}")
+            yield {"data": spoken_prompt, "user_input_count": user_input_count, "uid": uid, "audio_input": False}
+        else:
+            res = self.model.generate(input=spoken_prompt, batch_size_s=300, batch_size_threshold_s=60)
+            try:
+                # pred_text = "".join([t["text"] for t in res[0]["sentence_info"]])
+                pred_text = res[0]["text"]
+            except Exception as e:
+                import traceback
+                traceback.print_exc()
+                logger.error(f"ASR get nothing: {repr(e)}")
+                return None
 
-        res = self.model.generate(input=spoken_prompt, batch_size_s=300, batch_size_threshold_s=60)
-        try:
-            # pred_text = "".join([t["text"] for t in res[0]["sentence_info"]])
-            pred_text = res[0]["text"]
-        except Exception as e:
-            import traceback
-            traceback.print_exc()
-            logger.error(f"ASR get nothing: {repr(e)}")
-            return None
+            logger.info("finish ASR paraformer inference")
+            console.print(f"[yellow]{time.ctime()}\tUSER: {pred_text}")
 
-        logger.info("finish ASR paraformer inference")
-        console.print(f"[yellow]{time.ctime()}\tUSER: {pred_text}")
-
-        yield {"data": pred_text, "user_input_count": user_input_count}
+            yield {"data": pred_text, "user_input_count": user_input_count, "uid": uid, "audio_input": True}
 
 
 class CosyVoiceTTSHandler(BaseHandler):
@@ -800,19 +834,19 @@ class CosyVoiceTTSHandler(BaseHandler):
         logger.info(f"{self.__class__.__name__}:  warmed up! time: {start_event.elapsed_time(end_event) * 1e-3:.3f} s")
 
     def process(self,
-                inputs: Dict[str, Union[str, int, bool]],
+                inputs: Dict[str, Union[str, int]],
                 return_np: bool = True) -> Dict[str, Union[str, np.ndarray, int, bool]]:
         """
-        Process the input acquired from queue_in (from LLM) and generate the audio output of the TTS model with
+        Process the input acquired from queue_in (from STT) and generate the audio output of the TTS model with
         the stream paradigm, i.e., a long text sentence will be divided into several short sub-sentences to yield the
         generated sub-audio in real-time.
         Arguments:
-            - inputs (Dict[str, Union[str, int, bool]]): The input data acquired from queue_in. The data contains the \
-                str format LLM, bool end flag for LLM generation, and integer user input count.
+            - inputs (Dict[str, Union[str, int]]): The input data acquired from queue_in. The data contains the \
+                str format STT output and user id (uid), and integer user input count.
         Returns (Yield):
             - output (Dict[str, Union[str, np.ndarray, int, bool]]): The output data containing the transcripted \
-                question text, the LLM generated answer text, the TTS generated answer audio, end flag for the current \
-                LLM&TTS (i.e. the end of current response) generation, and the user input count.
+                question data, the TTS generated answer audio, end flag for the current \
+                TTS (i.e. the end of current response) generation, uid and the user input count.
             - return_np (bool): Whether to return the audio data in NumPy format. If False, the audio data will be \
                 torch.Tensor format.
         """
@@ -822,6 +856,7 @@ class CosyVoiceTTSHandler(BaseHandler):
         self.working_event.set()
 
         llm_sentence = inputs['data']
+        uid = inputs['uid']
         console.print(f"[green]{time.ctime()}\tASSISTANT: {llm_sentence}")
         audio_queue = Queue()
         ref_wav_path = os.path.join(self.input_folder, 'ref_wav', self.ref['ref_wav_path'])
@@ -878,14 +913,16 @@ class CosyVoiceTTSHandler(BaseHandler):
                 break
             end_flag = True
             if i == 0:
-                # logger.info(f"[green]{time.ctime()}\tTime to first user audio input: {perf_counter() - pipeline_start:.3f}")
-                # console.print(f"[green]{time.ctime()}\tTime to first user audio input: {perf_counter() - pipeline_start:.3f}")
+                if pipeline_start is not None:
+                    logger.info(f"[green]{time.ctime()}\tTime to first user audio input: {perf_counter() - pipeline_start:.3f}")
+                    console.print(f"[green]{time.ctime()}\tTime to first user audio input: {perf_counter() - pipeline_start:.3f}")
                 yield {
                     'question_text': None,
                     'answer_text': inputs['data'],
                     "answer_audio": audio_chunk,
                     "end_flag": end_flag,
-                    "user_input_count": inputs['user_input_count']
+                    "user_input_count": inputs['user_input_count'],
+                    "uid": uid
                 }
             else:
                 yield {
@@ -893,7 +930,8 @@ class CosyVoiceTTSHandler(BaseHandler):
                     'answer_text': inputs['data'],
                     "answer_audio": audio_chunk,
                     "end_flag": end_flag,
-                    "user_input_count": inputs['user_input_count']
+                    "user_input_count": inputs['user_input_count'],
+                    "uid": uid
                 }
             i += 1
 
