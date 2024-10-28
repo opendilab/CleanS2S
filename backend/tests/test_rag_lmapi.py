@@ -28,6 +28,8 @@ def main():
     inputs = {
         'data': '如何评价马斯克',
         'user_input_count': 1,
+        'uid': 'test_uid',
+        'audio_input': False,
     }
     generator = lm.process(inputs)
     outputs = "".join([t["answer_text"] for t in generator])
