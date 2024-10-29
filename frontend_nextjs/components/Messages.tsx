@@ -4,7 +4,7 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { ComponentRef, forwardRef, useState } from "react";
 import { BeatLoader } from 'react-spinners'
-import { ArrowDownToLine, ThumbsUp, AudioLines } from "lucide-react";
+import { ArrowDownToLine, ThumbsUp, AudioLines, ChevronRight, Dot } from "lucide-react";
 import { Tooltip } from 'react-tooltip'
 import { cn } from "@/utils";
 import { useVoice } from "./VoiceProvider";
@@ -19,10 +19,11 @@ const Messages = forwardRef<
   ComponentRef<typeof motion.div>,
   Record<never, never>
 >(function Messages(_, ref) {
-  const { messages, downloadAudio, replayAudio, fft, playedID } = useVoice();
+  const { messages, downloadAudio, replayAudio, fft, playedID, sendUserInput } = useVoice();
   const el = document.documentElement;
   const isDarkMode = el.classList.contains("dark");
   const emptyFft = generateEmptyFft();
+  //console.log('messages', messages, Date.now())
 
   return (
     <motion.div
@@ -31,7 +32,7 @@ const Messages = forwardRef<
       ref={ref}
     >
       <motion.div
-        className={"max-w-2xl mx-auto w-full flex flex-col gap-4 pb-48"}
+        className={"max-w-2xl mx-auto w-full flex flex-col gap-2 pb-48"}
       >
         <AnimatePresence mode={"popLayout"}>
           {messages.map((msg, index) => {
@@ -48,6 +49,7 @@ const Messages = forwardRef<
                     "w-[80%]",
                     "bg-card",
                     "border border-border rounded-md",
+                    "mb-2",
                     msg.type === "user_message" ? "ml-auto" : ""
                   )}
                   initial={{
@@ -100,6 +102,42 @@ const Messages = forwardRef<
                   </div>
                 </motion.div>
               );
+            } else if (msg.type === "post_assistant_message") {
+              // @ts-ignore
+              const content = msg.message.content
+              const { q1, q2, q3 } = JSON.parse(content)
+              return [q1, q2, q3].map((q, i) => (
+                <motion.div
+                  key={msg.type + index + i}
+                  className={cn(
+                    "w-[55%] sm:w-[35%]",
+                    "bg-muted",
+                    "border border-border rounded-xl",
+                  )}
+                  initial={{
+                    opacity: 0,
+                    y: 10,
+                  }}
+                  animate={{
+                    opacity: 1,
+                    y: 0,
+                  }}
+                  exit={{
+                    opacity: 0,
+                    y: 0,
+                  }}
+                >
+                <div className="flex items-center cursor-pointer" 
+                  onClick={() => {
+                    sendUserInput(q)
+                  }}
+                >
+                  <Dot size={20}/>
+                  <div className="flex-1 mx-1 text-xs">{q}</div>
+                  <ChevronRight size={16}/>
+                </div>
+                </motion.div>
+              ));
             } else if (msg.type === "user_vad_message" && index === messages.length - 1) {
               return (
                 <motion.div
@@ -108,6 +146,7 @@ const Messages = forwardRef<
                     "w-[80%]",
                     "bg-card",
                     "border border-border rounded-md",
+                    "mb-2",
                     "ml-auto"
                   )}
                   initial={{
@@ -143,6 +182,7 @@ const Messages = forwardRef<
                     "w-[80%]",
                     "bg-card",
                     "border border-border rounded-md",
+                    "mb-2",
                   )}
                   initial={{
                     opacity: 0,

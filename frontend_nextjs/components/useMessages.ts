@@ -1,4 +1,4 @@
-import { AssistantMessage, UserMessage, ChatMetadata, JsonMessage, UserInterruption } from './types';
+import { AssistantMessage, UserMessage, ChatMetadata, JsonMessage, UserInterruption, PostAssistantMessage } from './types';
 import { useCallback, useState } from 'react';
 
 import type { ConnectionMessage } from './connection-message';
@@ -9,13 +9,14 @@ export const useMessages = ({
   messageHistoryLimit,
 }: {
   sendMessageToParent?: (
-    message: JsonMessage | AssistantMessage | UserMessage | UserInterruption,
+    message: JsonMessage | AssistantMessage | UserMessage | UserInterruption | PostAssistantMessage,
   ) => void;
   messageHistoryLimit: number;
 }) => {
   const [voiceMessageMap, setVoiceMessageMap] = useState<
     Record<string, AssistantMessage & { receivedAt: Date }>
   >({});
+  const [postMessage, setPostMessage] = useState<PostAssistantMessage | null>(null);
 
   const [messages, setMessages] = useState<
     Array<
@@ -77,11 +78,8 @@ export const useMessages = ({
             [`${message.id}`]: message,
           }));
           break;
-        case 'assistant_message':
-          sendMessageToParent?.(message);
-          setMessages((prev) => {
-            return keepLastN(messageHistoryLimit, prev.concat([message]));
-          });
+        case 'post_assistant_message':
+          setPostMessage(message);
           break;
         case 'user_message':
           sendMessageToParent?.(message);
@@ -127,10 +125,19 @@ export const useMessages = ({
         setLastVoiceMessage(matchingTranscript);
         setMessages((prev) => {
           if (matchingTranscript.end) {
-            return keepLastN(
-              messageHistoryLimit,
-              prev.concat([matchingTranscript]),
-            );
+            if (postMessage) {
+              sendMessageToParent?.(postMessage);
+              return keepLastN(
+                messageHistoryLimit,
+                prev.concat([matchingTranscript, postMessage]),
+              );
+              setPostMessage(null);
+            } else {
+              return keepLastN(
+                messageHistoryLimit,
+                prev.concat([matchingTranscript]),
+              );
+            }
           } else {
             const notEndedMessage: AssistantMessage = {
               'type': 'assistant_notend_message',
@@ -158,7 +165,7 @@ export const useMessages = ({
         });
       }
     },
-    [voiceMessageMap, sendMessageToParent, messageHistoryLimit],
+    [voiceMessageMap, sendMessageToParent, messageHistoryLimit, postMessage],
   );
 
   const clearMessages = useCallback(() => {

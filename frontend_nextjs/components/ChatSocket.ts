@@ -313,6 +313,20 @@ export class ChatSocket {
       return;
     }
     const audioBase64 = jsonData.answer_audio;
+    if (audioBase64 === "") {  // only extra text information
+      const audioOutputObject: AudioOutput = {
+        type: 'text_output',
+        id: String(this.idCount),
+        data: null,
+        question: null,
+        answer: JSON.stringify(jsonData.answer_text)
+      };
+      // @ts-ignore
+      this.recvEventHandlers.message?.(audioOutputObject);
+      this.idCount++;
+      return;
+    }
+
     const audioBytes = Uint8Array.from(atob(audioBase64), c => c.charCodeAt(0));
     const dataView = new DataView(audioBytes.buffer);
     const audioInt16 = new Int16Array(audioBytes.length / 2);

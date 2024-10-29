@@ -2,7 +2,7 @@
 
 import { useCallback, useRef, useState } from 'react';
 import { v4 as uuidv4 } from 'uuid';
-import { AudioOutput, JsonMessage, AssistantMessage, UserMessage, SessionSettings } from './types';
+import { AudioOutput, JsonMessage, AssistantMessage, UserMessage, SessionSettings, PostAssistantMessage } from './types';
 import { ChatSocket } from './ChatSocket';
 import { ReconnectingWebSocket } from './WebSocket';
 
@@ -135,13 +135,28 @@ export const useVoiceClient = (props: {
             };
             // @ts-ignore
             onMessage.current?.(textMessage);
-          }
+          } 
           // delay 100ms to make sure the audio message is played after the text message
 
           setTimeout(() => {
             onAudioMessage.current?.(messageWithReceivedAt);
           }, 200);
           return;
+        } else if (message.type === 'text_output') {
+            const postQuestion = message.answer;
+                const postQuestionMessage: PostAssistantMessage = {
+                  type: 'post_assistant_message',
+                  id: message.id,
+                  fromText: false,
+                  message: {
+                    role: 'assistant',
+                    content: postQuestion,
+                  },
+                  receivedAt: new Date(),
+                  end: true,
+                };
+                // @ts-ignore
+                onMessage.current?.(postQuestionMessage);
         }
 
         // asserts that all message types are handled

@@ -10,3 +10,4 @@ export * from './SessionSettings';
 export * from './PauseAssistantMessage';
 export * from './ResumeAssistantMessage';
 export * from './UserInterruption';
+export * from './PostAssistantMessage';
