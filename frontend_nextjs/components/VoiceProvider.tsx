@@ -1,4 +1,4 @@
-import { JsonMessage, AssistantMessage, UserMessage, AudioOutput, SessionSettings, ChatMetadata, UserInterruption } from './types';
+import { JsonMessage, AssistantMessage, UserMessage, AudioOutput, SessionSettings, ChatMetadata, UserInterruption, PostAssistantMessage } from './types';
 import React, {
   createContext,
   FC,
@@ -53,6 +53,7 @@ export type VoiceContextType = {
     | UserMessage
     | AssistantMessage
     | UserInterruption
+    | PostAssistantMessage
   )[];
   lastVoiceMessage: AssistantMessage | null;
   lastUserMessage: UserMessage | null;

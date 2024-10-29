@@ -25,6 +25,7 @@ export const useMessages = ({
       | AssistantMessage
       | UserMessage
       | UserInterruption
+      | PostAssistantMessage
     >
   >([]);
 
@@ -59,7 +60,7 @@ export const useMessages = ({
   }, []);
 
   const onMessage = useCallback(
-    (message: JsonMessage | AssistantMessage | UserMessage | UserInterruption) => {
+    (message: JsonMessage | AssistantMessage | UserMessage | UserInterruption | PostAssistantMessage ) => {
       /* 
       1. message comes in from the backend
         - if the message IS NOT AssistantTranscriptMessage, store in `messages` immediately  

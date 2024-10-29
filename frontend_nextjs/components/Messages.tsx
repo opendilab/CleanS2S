@@ -2,7 +2,7 @@
 
 
 import { AnimatePresence, motion } from "framer-motion";
-import { ComponentRef, forwardRef, useState } from "react";
+import { ComponentRef, forwardRef } from "react";
 import { BeatLoader } from 'react-spinners'
 import { ArrowDownToLine, ThumbsUp, AudioLines, ChevronRight, Dot } from "lucide-react";
 import { Tooltip } from 'react-tooltip'
@@ -105,6 +105,7 @@ const Messages = forwardRef<
             } else if (msg.type === "post_assistant_message") {
               // @ts-ignore
               const content = msg.message.content
+              // @ts-ignore
               const { q1, q2, q3 } = JSON.parse(content)
               return [q1, q2, q3].map((q, i) => (
                 <motion.div

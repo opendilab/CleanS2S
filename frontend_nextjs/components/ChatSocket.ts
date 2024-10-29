@@ -317,8 +317,8 @@ export class ChatSocket {
       const audioOutputObject: AudioOutput = {
         type: 'text_output',
         id: String(this.idCount),
-        data: null,
-        question: null,
+        data: new Int16Array(new ArrayBuffer(16)),
+        question: "",
         answer: JSON.stringify(jsonData.answer_text)
       };
       // @ts-ignore

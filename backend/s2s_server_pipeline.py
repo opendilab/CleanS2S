@@ -55,6 +55,34 @@ console = Console()
 global pipeline_start
 pipeline_start = None
 
+CLEANS2S_SMART_INTERACTION_PROMPT = """
+# 角色
+你是一个说话简洁但风趣幽默的人，擅长与他人轻松愉快地交流。
+
+# 能力
+1. 风格适应：能根据用户的对话风格，灵活调整自己的说话方式和口语化程度，让对话更加自然亲切。
+2. 理解纠错：如果用户输入中有难以理解的字和词汇，可能是语音识别的误差，你会尝试给出几种可能的解释，并询问用户以确认，确定信息后再开始后续回答。如果没有，正常回答即可。
+3. 避免使用复杂的格式（比如 markdown 或强调符号**等），简单断句或分段即可，分点列举信息时不要超过4种，保持对话的流畅性。
+4. 分段回答：对于较长的知识性回答，不要直接长篇大论说很多，你需要先给出总体介绍，然后分成多个部分（不超过4个），每个部分只用简短的关键词指代，不要过度展开，用户如果追问细节，你再给出相应的详细介绍。
+
+# 例子
+用户输入1
+"我今天吃了个超级大的披萨，结果肚子疼得要命，是不是因为披萨泰拉了？"
+
+智能体输出1
+"哎呀，心疼你一秒！肚子疼得要命，你是不是在说披萨太辣了？还是你觉得可能是其他原因呢？比如，披萨是不是品质太差太垃圾了？我们一起想想办法，看看怎么样能帮你缓解一下？"
+
+用户输入2
+"你会和面吗？能给我讲讲做法吗？"
+
+智能体输出2
+和面的做法其实很简单，整体大概可以分为四步：准备材料、混合搅拌、揉面、醒面。你具体想了解哪一块呢？
+"""
+CLEANS2S_SMART_POST_QUESTION_PROMPT = """
+对上文进行分析，判断语境是否生成联想问题，如果是，请生成基于上文信息，用户可能还会问的3个问题，格式规范为：【用户可能想问】：<问题1>|<问题2>|<问题3>。如果不是，输出"空"。
+"""
+CLEANS2S_SMART_POST_QUESTION_PATTERN = r"【用户可能想问】：([^|]+)\|([^|]+)\|([^|]+)"
+
 
 class ThreadManager:
     """
@@ -1063,9 +1091,6 @@ class LanguageModelHandler(BaseHandler):
                 count += 1
                 printable_text = sentences[1]
 
-        if not self.cur_conn_end_event.is_set():
-            self.chat.append({"role": "assistant", "content": generated_text})
-
         # don't forget last sentence
         if not self.interruption_event.is_set() and printable_text.strip() != "":
             if count == 0:
@@ -1084,6 +1109,9 @@ class LanguageModelHandler(BaseHandler):
                     'user_input_count': user_input_count,
                     "uid": uid
                 }
+
+        if not self.cur_conn_end_event.is_set():
+            self.chat.append({"role": "assistant", "content": generated_text})
 
         self.working_event.clear()
         logger.info("inference LLM over")
@@ -1265,9 +1293,6 @@ class LanguageModelAPIHandler(BaseHandler):
                 count += 1
                 printable_text = others
 
-        if not self.cur_conn_end_event.is_set():
-            self.chat.append({"role": "assistant", "content": generated_text})
-
         # don't forget last sentence
         if not self.interruption_event.is_set() and printable_text.strip() != "":
             if count == 0:
@@ -1282,6 +1307,33 @@ class LanguageModelAPIHandler(BaseHandler):
                 yield {
                     'question_text': None,
                     'answer_text': printable_text,
+                    'end_flag': True,
+                    'user_input_count': user_input_count,
+                    "uid": uid
+                }
+
+        if not self.cur_conn_end_event.is_set():
+            self.chat.append({"role": "assistant", "content": generated_text})
+            response = self.client.chat.completions.create(
+                model=self.model_name,
+                messages=self.chat.to_list() + [{"role": self.user_role, "content": CLEANS2S_SMART_POST_QUESTION_PROMPT}],
+                max_tokens=self.max_new_tokens,
+                temperature=self.temperature,
+                top_p=0.95,
+                frequency_penalty=0,
+                presence_penalty=0,
+                stream=False
+            )
+            msg = response.choices[0].message.content
+            matched = re.search(CLEANS2S_SMART_POST_QUESTION_PATTERN, msg)
+            if matched:
+                question1 = matched.group(1)
+                question2 = matched.group(2)
+                question3 = matched.group(3)
+                result = {"q1": question1, "q2": question2, "q3": question3}
+                yield {
+                    'question_text': None,
+                    'answer_text': result,
                     'end_flag': True,
                     'user_input_count': user_input_count,
                     "uid": uid
@@ -1396,15 +1448,16 @@ class CosyVoiceTTSHandler(BaseHandler):
         logger.info(f"{self.__class__.__name__}:  warmed up! time: {start_event.elapsed_time(end_event) * 1e-3:.3f} s")
 
     def process(self,
-                inputs: Dict[str, Union[str, int, bool]],
+                inputs: Dict[str, Union[str, int, bool, dict]],
                 return_np: bool = True) -> Dict[str, Union[str, np.ndarray, int, bool]]:
         """
         Process the input acquired from queue_in (from LLM) and generate the audio output of the TTS model with
         the stream paradigm, i.e., a long text sentence will be divided into several short sub-sentences to yield the
         generated sub-audio in real-time.
         Arguments:
-            - inputs (Dict[str, Union[str, int, bool]]): The input data acquired from queue_in. The data contains the \
-                str format LLM output and user id (uid), bool end flag for LLM generation, and integer user input count.
+            - inputs (Dict[str, Union[str, int, bool, dict]]): The input data acquired from queue_in. The data \
+                contains the str/dict format LLM output and user id (uid), bool end flag for LLM generation, and \
+                integer user input count.
         Returns (Yield):
             - output (Dict[str, Union[str, np.ndarray, int, bool]]): The output data containing the transcripted \
                 question text, the LLM generated answer text, the TTS generated answer audio, end flag for the current \
@@ -1419,83 +1472,93 @@ class CosyVoiceTTSHandler(BaseHandler):
 
         llm_sentence = inputs['answer_text']
         uid = inputs['uid']
-        console.print(f"[green]{time.ctime()}\tASSISTANT: {llm_sentence}")
-        audio_queue = Queue()
-        ref_wav_path = os.path.join(self.input_folder, 'ref_wav', self.ref['ref_wav_path'])
-        total_cnt = -1
+        if isinstance(llm_sentence, dict):
+            yield {
+                'question_text': inputs['question_text'],
+                'answer_text': llm_sentence,
+                "answer_audio": 0,  # indicator for this special type return value in frontend
+                "end_flag": inputs["end_flag"],
+                "user_input_count": inputs['user_input_count'],
+                "uid": uid
+            }
+        else:
+            console.print(f"[green]{time.ctime()}\tASSISTANT: {llm_sentence}")
+            audio_queue = Queue()
+            ref_wav_path = os.path.join(self.input_folder, 'ref_wav', self.ref['ref_wav_path'])
+            total_cnt = -1
 
-        prompt_speech_16k = load_wav(ref_wav_path, 16000)
-        tts_gen_kwargs = dict(
-            tts_text=llm_sentence,
-            prompt_text=self.ref['prompt_text'],
-            prompt_speech_16k=prompt_speech_16k,
-            stream=False,
-        )
+            prompt_speech_16k = load_wav(ref_wav_path, 16000)
+            tts_gen_kwargs = dict(
+                tts_text=llm_sentence,
+                prompt_text=self.ref['prompt_text'],
+                prompt_speech_16k=prompt_speech_16k,
+                stream=False,
+            )
 
-        def infer_fn():
-            nonlocal total_cnt
-            try:
-                for item in self.model.inference_zero_shot(**tts_gen_kwargs):
-                    audio = item["tts_speech"]
-                    # original audio returned from the model is 22.05kHz, resample it to 16kHz, which is the default
-                    # sample rate of the whole pipeline
-                    audio = torchaudio.transforms.Resample(orig_freq=22050, new_freq=16000)(audio)
-                    total_cnt = 1
-                    if return_np:
-                        # Transform the audio tensor to NumPy format with int16 type and range
-                        audio = (audio.cpu().numpy() * 32768).astype(np.int16)
-                    audio_queue.put(audio)
-                    # If the interruption event is triggered, stop the TTS generation
+            def infer_fn():
+                nonlocal total_cnt
+                try:
+                    for item in self.model.inference_zero_shot(**tts_gen_kwargs):
+                        audio = item["tts_speech"]
+                        # original audio returned from the model is 22.05kHz, resample it to 16kHz, which is the default
+                        # sample rate of the whole pipeline
+                        audio = torchaudio.transforms.Resample(orig_freq=22050, new_freq=16000)(audio)
+                        total_cnt = 1
+                        if return_np:
+                            # Transform the audio tensor to NumPy format with int16 type and range
+                            audio = (audio.cpu().numpy() * 32768).astype(np.int16)
+                        audio_queue.put(audio)
+                        # If the interruption event is triggered, stop the TTS generation
+                        if self.interruption_event.is_set() or self.cur_conn_end_event.is_set():
+                            break
+                    audio_queue.put(self.stop_signal)
+                except Exception as e:
+                    logger.error(f"TTS error {repr(e)}")
+                    import traceback
+                    traceback.print_exc()
+                    audio_queue.put(self.stop_signal)
+
+            thread = Thread(target=infer_fn)
+            thread.start()
+
+            i = 0
+            while True:
+                try:
+                    audio_chunk = audio_queue.get(timeout=0.2)
+                except Empty:
                     if self.interruption_event.is_set() or self.cur_conn_end_event.is_set():
+                        logger.info("Stop TTS generation due to the current connection is end")
                         break
-                audio_queue.put(self.stop_signal)
-            except Exception as e:
-                logger.error(f"TTS error {repr(e)}")
-                import traceback
-                traceback.print_exc()
-                audio_queue.put(self.stop_signal)
-
-        thread = Thread(target=infer_fn)
-        thread.start()
-
-        i = 0
-        while True:
-            try:
-                audio_chunk = audio_queue.get(timeout=0.2)
-            except Empty:
+                    else:
+                        continue
                 if self.interruption_event.is_set() or self.cur_conn_end_event.is_set():
                     logger.info("Stop TTS generation due to the current connection is end")
                     break
+                if audio_chunk is self.stop_signal:
+                    break
+                end_flag = inputs['end_flag'] and i == total_cnt - 1
+                if i == 0:
+                    if pipeline_start is not None:
+                        logger.info(f"[green]{time.ctime()}\tTime to first user audio input: {perf_counter() - pipeline_start:.3f}")
+                        console.print(f"[green]{time.ctime()}\tTime to first user audio input: {perf_counter() - pipeline_start:.3f}")
+                    yield {
+                        'question_text': inputs['question_text'],
+                        'answer_text': inputs['answer_text'],
+                        "answer_audio": audio_chunk,
+                        "end_flag": end_flag,
+                        "user_input_count": inputs['user_input_count'],
+                        "uid": uid
+                    }
                 else:
-                    continue
-            if self.interruption_event.is_set() or self.cur_conn_end_event.is_set():
-                logger.info("Stop TTS generation due to the current connection is end")
-                break
-            if audio_chunk is self.stop_signal:
-                break
-            end_flag = inputs['end_flag'] and i == total_cnt - 1
-            if i == 0:
-                if pipeline_start is not None:
-                    logger.info(f"[green]{time.ctime()}\tTime to first user audio input: {perf_counter() - pipeline_start:.3f}")
-                    console.print(f"[green]{time.ctime()}\tTime to first user audio input: {perf_counter() - pipeline_start:.3f}")
-                yield {
-                    'question_text': inputs['question_text'],
-                    'answer_text': inputs['answer_text'],
-                    "answer_audio": audio_chunk,
-                    "end_flag": end_flag,
-                    "user_input_count": inputs['user_input_count'],
-                    "uid": uid
-                }
-            else:
-                yield {
-                    'question_text': None,
-                    'answer_text': None,
-                    "answer_audio": audio_chunk,
-                    "end_flag": end_flag,
-                    "user_input_count": inputs['user_input_count'],
-                    "uid": uid
-                }
-            i += 1
+                    yield {
+                        'question_text': None,
+                        'answer_text': None,
+                        "answer_audio": audio_chunk,
+                        "end_flag": end_flag,
+                        "user_input_count": inputs['user_input_count'],
+                        "uid": uid
+                    }
+                i += 1
 
         self.should_listen.set()
         self.working_event.clear()
@@ -1719,7 +1782,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--init_chat_prompt",
         type=str,
-        default="你是一个风趣幽默且聪明的智能体。",
+        default=CLEANS2S_SMART_INTERACTION_PROMPT,
         help="The initial chat prompt to establish context for the language model.'"
     )
     parser.add_argument(
