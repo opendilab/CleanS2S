@@ -235,7 +235,7 @@ export const VoiceProvider: FC<VoiceProviderProps> = ({
     ),
   });
 
-  const connect = useCallback(async () => {
+  const connect = useCallback(async (runtimeConfig: SocketConfig) => {
     updateError(null);
     setStatus({ value: 'connecting' });
     const permission = await getStream();
@@ -252,7 +252,7 @@ export const VoiceProvider: FC<VoiceProviderProps> = ({
     try {
       await client
         .connect({
-          ...config,
+          ...runtimeConfig,
         })
         .then(() => {
           if (

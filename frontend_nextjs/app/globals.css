@@ -57,3 +57,22 @@
     @apply bg-background text-foreground;
   }
 }
+
+
+body {
+  min-height: 100vh;
+  padding: 2rem;
+}
+
+
+
+.container {
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+@media (max-width: 768px) {
+  body {
+    padding: 0.5rem;
+  }
+}
