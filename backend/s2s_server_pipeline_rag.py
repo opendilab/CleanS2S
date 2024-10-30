@@ -300,6 +300,10 @@ class MyLightRAG:
                 **kwargs
             )
 
+        self.db_path = db_path
+        if not os.path.exists(self.db_path):
+            os.makedirs(self.db_path, exist_ok=True)
+
         # Initialize LightRAG.
         self.rag = LightRAG(
             working_dir=db_path,
@@ -319,12 +323,9 @@ class MyLightRAG:
 
         self.lm_model_name = lm_model_name
         self.lm_model_url = lm_model_url
-        self.db_path = db_path
+
         self.documents = []
         self.mode = mode
-
-        if not os.path.exists(self.db_path):
-            os.makedirs(self.db_path, exist_ok=True)
 
     def split_document(self, path: str, *arg, **kwargs) -> None:
         """

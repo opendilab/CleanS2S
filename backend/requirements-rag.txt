@@ -3,3 +3,6 @@ langchain_community
 langchain_openai
 sentence-transformers
 chromadb==0.5.3
+aiohttp
+git+https://github.com/HKUDS/LightRAG.git
+

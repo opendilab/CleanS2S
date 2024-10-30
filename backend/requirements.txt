@@ -5,4 +5,3 @@ protobuf==4.25.4
 rich
 websockets
 openai>=1.0
-lightrag-hku
