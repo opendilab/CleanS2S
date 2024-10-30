@@ -1,7 +1,7 @@
 *.pyc
 *.swp
 *.DS_Store
-idea/*
+.idea/*
 __pycache__/*
 backend/.env.dev
 backend/tmp
