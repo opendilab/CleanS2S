@@ -41,7 +41,7 @@ type VoiceStatus =
     };
 
 export type VoiceContextType = {
-  connect: () => Promise<void>;
+  connect: (config: SocketConfig) => Promise<void>;
   disconnect: () => void;
   fft: number[];
   isMuted: boolean;

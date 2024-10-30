@@ -6,9 +6,8 @@ interface CardProps {
 
 const Card = ({ title, description, icon }: CardProps) => {
   return (
-      <div className="rounded-2xl p-6 cursor-pointer transition-all hover:scale-105 h-full" 
+      <div className="rounded-2xl p-6 cursor-pointer transition-all hover:scale-105 h-full gradient-bg gradient-bg-dark" 
            style={{ 
-             background: 'linear-gradient(135deg, rgba(255,255,255,0.8), rgba(255,255,255,0.4))',
              backdropFilter: 'blur(10px)',
              boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)'
            }}>

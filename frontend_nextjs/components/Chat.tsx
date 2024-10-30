@@ -19,6 +19,8 @@ export default function ClientComponent({
       }
     >
       <VoiceProvider
+        sendHostname={"placeholder"}
+        recvHostname={"placeholder"}
         onMessage={() => {
           if (timeout.current) {
             window.clearTimeout(timeout.current);

@@ -4,6 +4,7 @@
 import Card from "./Card";
 import { useVoice } from "./VoiceProvider";
 import { errorToaster } from "./toaster";
+import { Toaster } from 'react-hot-toast';
 
 const cards = [
   {
@@ -28,6 +29,7 @@ export default function CardPanel() {
   return (
     <div className="container mx-auto p-4 md:p-8">
       <div className="grid grid-cols-2 md:grid-cols-3 gap-4 md:gap-6 max-w-6xl mx-auto">
+        <Toaster />
         <div className="col-span-2 md:col-span-2 transition-all duration-300"
             onClick={() => {
                 const sendHostname = process.env.NEXT_PUBLIC_FX_SEND_HOST || ""
@@ -64,12 +66,14 @@ export default function CardPanel() {
         
         <div className="col-span-1 md:col-span-3 transition-all duration-300"
             onClick={() => {
-                console.log("WIP")
                 errorToaster("正在开发中，敬请期待")
             }}
         >
           <Card {...cards[2]} />
         </div>
+      </div>
+      <div className="flex mt-4 text-md text-primary font-medium justify-center">
+        <span className="animate-bounce">点击任意模式开始</span>
       </div>
     </div>
   );
