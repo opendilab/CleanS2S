@@ -284,13 +284,14 @@ P.S.: If you want to run the client locally, you should install node.js and pnpm
 
 ## Roadmap
 - [x] Voice Conversion Pipeline (ASR + TTS) (i.e., backend/vc_server_pipeline.py)
-- [ ] More examples and evaluation utilities
-- [ ] More prompts and RAG strategies
-- [ ] Customized example characters
+- [ ] WebUI optimization (support more diverse interactions and functions)
 - [ ] Inference speed optimization
 - [ ] Multi-user support for backend
+- [ ] More prompts and RAG strategies (serper + jina + LightRAG)
+- [ ] More examples and evaluation utilities
+- [ ] Customized example characters
 - [ ] More interesting interraction and challenging mechanism
-- [ ] e2e
+- [ ] e2e s2s model training and deployment
 
 ## Support and get involved
 
