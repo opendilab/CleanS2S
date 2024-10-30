@@ -18,6 +18,10 @@ from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain_community.vectorstores.chroma import Chroma
 from langchain.chains import RetrievalQA
 from langchain_openai import ChatOpenAI
+from lightrag.llm import openai_complete_if_cache, hf_embedding
+from transformers import AutoModel, AutoTokenizer
+from lightrag import LightRAG, QueryParam
+from lightrag.utils import EmbeddingFunc
 
 from s2s_server_pipeline import Chat, ThreadManager, SocketSender, SocketVADReceiver, ParaFormerSTTHandler, \
     CosyVoiceTTSHandler, LanguageModelHandler, LanguageModelAPIHandler, logger
@@ -256,6 +260,111 @@ class RAG:
         self.documents = []
 
 
+class MyLightRAG:
+    """
+    A class that implements the "LightRAG: Simple and Fast Retrieval-Augmented Generation".
+    This class is used to retrieve information from the database and generate answers using a language model.
+    The official repository can be found at: https://github.com/HKUDS/LightRAG.
+    """
+
+    def __init__(
+            self,
+            embedding_model_name: str,
+            db_path: str,
+            lm_model_name: str = "deepseek-chat",
+            lm_model_url: str = "https://api.deepseek.com",
+            mode: str = 'local'
+    ) -> None:
+        """
+        Initialize the RAG module with the specified parameters.
+        Arguments:
+            - embedding_model_name (str): The name of the embedding model to use. Usually a HuggingFace model.
+            - db_path (str): The local path to the database directory.
+            - lm_model_name (str): The name of the language model API to use.
+            - lm_model_url (str): The URL of the language model API.
+            - mode (str): which mode of searching should be used. This value can be chosen from
+                ["local", "global", "hybrid", "naive"]
+        """
+
+        async def llm_model_func(
+                prompt, system_prompt=None, history_messages=[], **kwargs
+        ) -> str:
+            # Get the response of llm in an asynchronous manner.
+            return await openai_complete_if_cache(
+                lm_model_name,
+                prompt,
+                system_prompt=system_prompt,
+                history_messages=history_messages,
+                api_key=os.getenv("LLM_API_KEY"),
+                base_url=lm_model_url,
+                **kwargs
+            )
+
+        # Initialize LightRAG.
+        self.rag = LightRAG(
+            working_dir=db_path,
+            llm_model_func=llm_model_func,  # Use llm api for text generation
+            # Use Hugging Face embedding function
+            embedding_func=EmbeddingFunc(
+                # Note that this value should be changed when the embedding model changes.
+                embedding_dim=os.getenv("EMBEDDING_DIM", default=768),
+                max_token_size=2048,
+                func=lambda texts: hf_embedding(
+                    texts,
+                    tokenizer=AutoTokenizer.from_pretrained(embedding_model_name),
+                    embed_model=AutoModel.from_pretrained(embedding_model_name)
+                )
+            )
+        )
+
+        self.lm_model_name = lm_model_name
+        self.lm_model_url = lm_model_url
+        self.db_path = db_path
+        self.documents = []
+        self.mode = mode
+
+        if not os.path.exists(self.db_path):
+            os.makedirs(self.db_path, exist_ok=True)
+
+    def split_document(self, path: str, *arg, **kwargs) -> None:
+        """
+        Load documents one by one from each file.
+        """
+        document_file_list = glob.glob(os.path.join(path, "*.txt"))
+        for i in range(len(document_file_list)):
+            raw_doc = TextLoader(document_file_list[i], encoding="utf-8").load()[0].page_content
+            self.documents.append(raw_doc)
+
+    def embedding_process(self) -> None:
+        """
+        The embedding process of LightRAG is to insert new documents into the knowledge graph.
+        """
+        self.rag.insert(self.documents)
+
+    def load_db(self) -> None:
+        # Placeholder function.
+        return
+
+    def update_db_docs(self) -> None:
+        # Placeholder function.
+        return
+
+    def search_info(self, query: str) -> List:
+        """
+        Search the information from the knowledge graph given a query.
+        """
+        return self.rag.query(query, param=QueryParam(mode=self.mode))
+
+    def retrival_qa_chain_from_db(self, query: str) -> str:
+        raise NotImplementedError
+
+    def clear(self) -> None:
+        """
+        Clear the state variables.
+        """
+        self.documents = []
+
+
 class RAGLanguageModelHelper:
     """
     Handler class for interacting with the language model through the WebSearch and RAG.
@@ -287,6 +396,8 @@ class RAGLanguageModelHelper:
             max_new_tokens: int,
             embedding_model_name: str,
             db_path: str = "./persist_db",
+            rag_backend: str = 'light_rag',
+            rag_mode: str = 'local'
     ) -> None:
         """
         Initialize the RAG language model helper with the specified parameters.
@@ -296,6 +407,10 @@ class RAGLanguageModelHelper:
             - max_new_tokens (int): The maximum number of new tokens to generate.
             - embedding_model_name (str): The name of the embedding model to use. Usually a HuggingFace model.
             - db_path (str): The local path to the database directory.
+            - rag_backend (str): The backend used for RAG. This value can be either "base" or "light_rag".
+            - rag_mode (str): When using LightRAG as backend, which mode of searching should be used. This value can
+                be chosen from ["local", "global", "hybrid", "naive"]. The detailed meaning of these options can be
+                viewed at: https://github.com/HKUDS/LightRAG.
         """
         self.model_name = model_name
         self.model_url = model_url
@@ -305,12 +420,25 @@ class RAGLanguageModelHelper:
         self.tmp_dir = f"ragtmp/{str(uuid4())[:8]}/"
         self.history_keywords = ""
         self.search = WebSearchHelper()
-        self.rag = RAG(
-            lm_model_name=self.model_name,
-            lm_model_url=self.model_url,
-            embedding_model_name=self.embedding_model_name,
-            db_path=self.db_path
-        )
+
+        if rag_backend == 'base':
+            self.rag = RAG(
+                lm_model_name=self.model_name,
+                lm_model_url=self.model_url,
+                embedding_model_name=self.embedding_model_name,
+                db_path=self.db_path
+            )
+        elif rag_backend == 'light_rag':
+            self.rag = MyLightRAG(
+                lm_model_name=self.model_name,
+                lm_model_url=self.model_url,
+                embedding_model_name=self.embedding_model_name,
+                db_path=self.db_path,
+                mode=rag_mode
+            )
+        else:
+            raise ValueError(f"Unrecognized rag backend: {rag_backend}")
+
         self.client = OpenAI(api_key=os.getenv("LLM_API_KEY"), base_url=self.model_url)
         # for filename in os.listdir(self.tmp_dir):
         #     file_path = os.path.join(self.tmp_dir, filename)
@@ -376,7 +504,6 @@ class RAGLanguageModelHelper:
         rag_result = self.rag.search_info(prompt)
         # logger.info(f"summary:{summary}, result:{rag_result}")
         rag_result_str = '\n'.join(rag_result)
-
         original_messages = [
             {
                 "role": "system",

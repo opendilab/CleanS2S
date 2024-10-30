@@ -14,7 +14,10 @@ def main():
     model_url = "https://api.deepseek.com"
     embedding_model_name = os.getenv("EMBEDDING_MODEL_NAME")
 
-    rag = RAGLanguageModelHelper(model_name, model_url, 256, embedding_model_name)
+    rag = RAGLanguageModelHelper(model_name, model_url, 256, embedding_model_name, rag_backend='base')
+    # To use LightRAG as rag backend:
+    # rag = RAGLanguageModelHelper(model_name, model_url, 256, embedding_model_name, rag_backend='light_rag')
+
     lm = RAGLanguageModelAPIHandler(
         stop_event,
         cur_conn_end_event,
