@@ -6,8 +6,6 @@ import { AudioOutput, JsonMessage, AssistantMessage, UserMessage, SessionSetting
 import { ChatSocket } from './ChatSocket';
 import { ReconnectingWebSocket } from './WebSocket';
 
-import { type AuthStrategy } from './auth';
-
 const isNever = (_n: never) => {
   return;
 };
@@ -15,6 +13,7 @@ const isNever = (_n: never) => {
 export type SocketConfig = {
   sendHostname: string;
   recvHostname: string;
+  chatMode: boolean;
 }
 
 export enum VoiceReadyState {
@@ -40,6 +39,7 @@ export const useVoiceClient = (props: {
   const [readyState, setReadyState] = useState<VoiceReadyState>(
     VoiceReadyState.IDLE,
   );
+  const [curChatMode, setCurChatMode] = useState<boolean>(false);
 
   // this pattern might look hacky but it allows us to use the latest props
   // in callbacks set up inside useEffect without re-rendering the useEffect
@@ -67,6 +67,7 @@ export const useVoiceClient = (props: {
     return new Promise((resolve, reject) => {
       const sendSocket = new ReconnectingWebSocket(`${config.sendHostname}`);
       const recvSocket = new ReconnectingWebSocket(`${config.recvHostname}`);
+      setCurChatMode(config.chatMode)
       const uuid = uuidv4();
       client.current = new ChatSocket({ sendSocket, recvSocket, uuid })
 
@@ -78,19 +79,35 @@ export const useVoiceClient = (props: {
 
       client.current.on('message', (message) => {
         if (message.type === 'vad_output') {
-            // if chat is already alive, call onVAD to interrupt the current audio
-            onVAD.current?.()
-            const vadMessage: UserMessage = {
-                type: 'user_vad_message',
-                fromText: false,
-                message: {
-                    role: 'user',
+            if (config.chatMode) {
+              // if chat is already alive, call onVAD to interrupt the current audio
+              onVAD.current?.()
+              const vadMessage: UserMessage = {
+                  type: 'user_vad_message',
+                  fromText: false,
+                  message: {
+                      role: 'user',
+                      content: '',
+                  },
+                  receivedAt: new Date(),
+              };
+              // @ts-ignore
+              onMessage.current?.(vadMessage);
+            } else {
+              const notEndMessage: AssistantMessage = {
+                  type: 'assistant_notend_message',
+                  id: 'notend begin',
+                  fromText: false,
+                  message: {
+                    role: 'assistant',
                     content: '',
-                },
-                receivedAt: new Date(),
-            };
-            // @ts-ignore
-            onMessage.current?.(vadMessage);
+                  },
+                  receivedAt: new Date(),
+                  end: false,
+              };
+              // @ts-ignore
+              onMessage.current?.(notEndMessage);
+            }
         }
         if (message.type === 'audio_output') {
           const messageWithReceivedAt = { ...message, receivedAt: new Date() };
@@ -201,17 +218,19 @@ export const useVoiceClient = (props: {
     if (text === 'new topic') {
       return
     }
-    const questionMessage: UserMessage = {
-        type: 'user_message',
-        fromText: false,
-        message: {
-          role: 'user',
-          content: text,
-        },
-        receivedAt: new Date(),
-    };
-    // @ts-ignore
-    onMessage.current?.(questionMessage);
+    if (curChatMode) {
+      const questionMessage: UserMessage = {
+          type: 'user_message',
+          fromText: false,
+          message: {
+            role: 'user',
+            content: text,
+          },
+          receivedAt: new Date(),
+      };
+      // @ts-ignore
+      onMessage.current?.(questionMessage);
+    }
     const notEndMessage: AssistantMessage = {
         type: 'assistant_notend_message',
         id: 'notend begin',
@@ -225,7 +244,7 @@ export const useVoiceClient = (props: {
     };
     // @ts-ignore
     onMessage.current?.(notEndMessage);
-  }, []);
+  }, [curChatMode]);
 
   const sendAssistantInput = useCallback((text: string) => {
     client.current?.sendAssistantInput({

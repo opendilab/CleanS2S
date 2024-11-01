@@ -38,7 +38,7 @@ export default function CardPanel() {
                   errorToaster("请先指定正确的 NEXT_PUBLIC_FX_SEND_HOST 和 NEXT_PUBLIC_FX_RECV_HOST 环境变量")
                   return
                 }
-                connect({sendHostname, recvHostname})
+                connect({sendHostname, recvHostname, chatMode: true})
                 .then(() => {})
                 .catch(() => {})
                 .finally(() => {});
@@ -55,7 +55,7 @@ export default function CardPanel() {
                   errorToaster("请先指定正确的 NEXT_PUBLIC_VCTTS_SEND_HOST 和 NEXT_PUBLIC_VCTTS_RECV_HOST 环境变量")
                   return
                 }
-                connect({sendHostname, recvHostname})
+                connect({sendHostname, recvHostname, chatMode: false})
                 .then(() => {})
                 .catch(() => {})
                 .finally(() => {});

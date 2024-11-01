@@ -24,6 +24,7 @@ import {
   useVoiceClient,
   type VoiceReadyState,
 } from './useVoiceClient';
+import { errorToaster } from './toaster'
 
 type VoiceError =
   | { type: 'socket_error'; message: string; error?: Error }
@@ -246,6 +247,7 @@ export const VoiceProvider: FC<VoiceProviderProps> = ({
         message: 'Microphone permission denied',
       };
       updateError(error);
+      errorToaster("没有麦克风权限,请修改浏览器相关设置")
       return Promise.reject(error);
     }
 
