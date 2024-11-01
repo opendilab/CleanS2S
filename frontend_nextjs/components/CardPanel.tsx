@@ -15,12 +15,12 @@ const cards = [
   {
     title: "Advanced VC/TTS",
     description: "高保真的人声转换和文本转语音",
-    icon: "/icons/hat1.jpg",
+    icon: "/icons/hat2.jpg",
   },
   {
     title: "Streaming VC (WIP)",
     description: "实时流式声音转换和美化",
-    icon: "/icons/hat1.jpg",
+    icon: "/icons/hat3.jpg",
   }
 ];
 
