@@ -1,5 +1,6 @@
 from typing import Dict, List, Optional, Union, Any
 from abc import ABC, abstractmethod
+from datetime import datetime
 import logging
 import os
 import re
@@ -52,6 +53,23 @@ logger.info(f'BEGIN LOGGER {__name__}')
 console = Console()
 global pipeline_start
 pipeline_start = None
+
+def get_readable_time(timestamp: float) -> str:
+    dt_object = datetime.fromtimestamp(timestamp)
+    milliseconds = dt_object.microsecond // 1000
+    readable_time = dt_object.strftime("%Y-%m-%d-%H-%M-%S") + f"-{milliseconds:03}"
+    return readable_time
+
+
+def save_fn(filename: str, data: Any) -> None:
+    """Data type: numpy.array, str, int, float, None"""
+    for key, value in data.items():
+        if isinstance(value, np.ndarray):
+            np_data_name = f"{filename.split('.')[0]}_audio.npy"
+            np.save(np_data_name, value)
+            data[key] = np_data_name
+    with open(filename, 'w', encoding='utf-8') as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
 
 
 class ThreadManager:
@@ -415,7 +433,6 @@ class SocketVADReceiver:
                     else:
                         self.user_input_count += 1
                         self.queue_out.put({"data": text, "user_input_count": self.user_input_count, "uid": uid})
-                        # If text string is detected and frontend is playing, trigger the user interruption
                         await ws.send(json.dumps({"placeholder": ""}))
                 elif audio is not None:
                     vad = False
@@ -663,6 +680,7 @@ class ParaFormerSTTHandler(BaseHandler):
             device: str = "cuda",
             dtype: str = "float16",
             compile_mode: Optional[str] = None,
+            save_data: Optional[bool] = False,
     ) -> None:
         """
         Arguments:
@@ -674,11 +692,13 @@ class ParaFormerSTTHandler(BaseHandler):
             - device (str): The device to use for processing.
             - dtype (str): The data type to use for processing.
             - compile_mode (Optional[str]): The compile mode to use for processing the model.
+            - save_data (Optional[bool]): Whether to save processed data into `s2d_data` directory.
         """
         super().__init__(stop_event, cur_conn_end_event, queue_in, queue_out)
         self.device = device
         self.torch_dtype = getattr(torch, dtype)
         self.compile_mode = compile_mode
+        self.save_data = save_data
 
         prefix = model_name
         # vad model and punc model are necessary for the Paraformer model
@@ -718,10 +738,10 @@ class ParaFormerSTTHandler(BaseHandler):
             - inputs (Dict[str, Union[np.ndarray, str, int]]): The input data acquired from queue_in. The data \
                 contains the np.ndarray format audio data, string user id (uid) and integer user input count.
         Returns (Yield):
-            - output (Dict[str, Union[str, int, bool]]): The output data containing the ASR result, user id, bool flag \
-                about audio/text input and user input count.
+            - output (Dict[str, Union[str, int, bool, np.ndarray]]): The output data containing the original audio \
+                input, ASR text result, user id, bool flag about audio/text input and user input count.
         """
-        logger.info("inference ASR pacaformer...")
+        logger.info("inference ASR paraformer...")
         spoken_prompt, user_input_count, uid = inputs["data"], inputs["user_input_count"], inputs["uid"]
 
         global pipeline_start
@@ -730,7 +750,12 @@ class ParaFormerSTTHandler(BaseHandler):
         # user directly send text question
         if isinstance(spoken_prompt, str):
             console.print(f"[yellow]{time.ctime()}\tUSER: {spoken_prompt}")
-            yield {"data": spoken_prompt, "user_input_count": user_input_count, "uid": uid, "audio_input": False}
+            if self.save_data:
+                save_fn(
+                    f'vc_data/{uid}_{user_input_count}_input.json',
+                    {"audio": None, "text": spoken_prompt, "audio_input": False, "time": time.ctime()}
+                )
+            yield {"audio": None, "text": spoken_prompt, "user_input_count": user_input_count, "uid": uid, "audio_input": False}
         else:
             res = self.model.generate(input=spoken_prompt, batch_size_s=300, batch_size_threshold_s=60)
             try:
@@ -740,12 +765,17 @@ class ParaFormerSTTHandler(BaseHandler):
                 import traceback
                 traceback.print_exc()
                 logger.error(f"ASR get nothing: {repr(e)}")
-                return None
+                pred_text = ""
 
             logger.info("finish ASR paraformer inference")
             console.print(f"[yellow]{time.ctime()}\tUSER: {pred_text}")
+            if self.save_data:
+                save_fn(
+                    f'vc_data/{uid}_{user_input_count}_input.json',
+                    {"audio": spoken_prompt, "text": pred_text, "audio_input": True, "time": time.ctime()}
+                )
 
-            yield {"data": pred_text, "user_input_count": user_input_count, "uid": uid, "audio_input": True}
+            yield {"audio": spoken_prompt, "text": pred_text, "user_input_count": user_input_count, "uid": uid, "audio_input": True}
 
 
 class CosyVoiceTTSHandler(BaseHandler):
@@ -767,6 +797,7 @@ class CosyVoiceTTSHandler(BaseHandler):
             device: str = "cuda",
             dtype: str = "float32",
             compile_mode: Optional[str] = None,
+            save_data: Optional[bool] = False,
     ) -> None:
         """
         Arguments:
@@ -781,6 +812,7 @@ class CosyVoiceTTSHandler(BaseHandler):
             - device (str): The device to use for TTS model.
             - dtype (str): The data type to use for processing. Usually 'bfloat16' or 'float16' or 'float32'.
             - compile_mode (Optional[str]): The compilation mode to use for the model. If None, no compilation is used.
+            - save_data (Optional[bool]): Whether to save processed data into `s2d_data` directory.
         """
         super().__init__(stop_event, cur_conn_end_event, queue_in, queue_out)
         self.should_listen = should_listen
@@ -788,6 +820,7 @@ class CosyVoiceTTSHandler(BaseHandler):
         self.device = device
         self.torch_dtype = getattr(torch, dtype)
         self.compile_mode = compile_mode
+        self.save_data = save_data
         self.working_event = Event()
 
         self.model = CosyVoice(model_name)
@@ -816,9 +849,13 @@ class CosyVoiceTTSHandler(BaseHandler):
 
         torch.cuda.synchronize()
         start_event.record()
+        self.ref = random.choice(self.ref_list)
+        ref_wav_path = os.path.join(self.input_folder, 'ref_wav', self.ref['ref_wav_path'])
+        source_speech_16k = load_wav(ref_wav_path, 16000)
         for item in self.ref_list:
             ref_wav_path = os.path.join(self.input_folder, 'ref_wav', item['ref_wav_path'])
             prompt_speech_16k = load_wav(ref_wav_path, 16000)
+
             tts_gen_kwargs = dict(
                 tts_text="收到好友从远方寄来的生日礼物，那份意外的惊喜与深深的祝福让我心中充满了甜蜜的快乐，笑容如花儿般绽放。",
                 prompt_text=item['prompt_text'],
@@ -827,22 +864,31 @@ class CosyVoiceTTSHandler(BaseHandler):
             )
             for i in range(n_steps):
                 _ = list(self.model.inference_zero_shot(**tts_gen_kwargs))
-        self.ref = random.choice(self.ref_list)
+
+            vc_gen_kwargs = dict(
+                source_speech_16k=source_speech_16k,
+                prompt_speech_16k=prompt_speech_16k,
+                stream=False,
+                speed=1.0,
+            )
+            for i in range(n_steps):
+                _ = list(self.model.inference_vc(**vc_gen_kwargs))
 
         end_event.record()
         torch.cuda.synchronize()
         logger.info(f"{self.__class__.__name__}:  warmed up! time: {start_event.elapsed_time(end_event) * 1e-3:.3f} s")
 
     def process(self,
-                inputs: Dict[str, Union[str, int]],
+                inputs: Dict[str, Union[str, int, np.ndarray]],
                 return_np: bool = True) -> Dict[str, Union[str, np.ndarray, int, bool]]:
         """
         Process the input acquired from queue_in (from STT) and generate the audio output of the TTS model with
         the stream paradigm, i.e., a long text sentence will be divided into several short sub-sentences to yield the
         generated sub-audio in real-time.
         Arguments:
-            - inputs (Dict[str, Union[str, int]]): The input data acquired from queue_in. The data contains the \
-                str format STT output and user id (uid), and integer user input count.
+            - inputs (Dict[str, Union[str, int, np.ndarray]]): The input data acquired from queue_in. The data \
+                contains the numpy array original audio, the str format STT output and user id (uid), and integer \
+                user input count.
         Returns (Yield):
             - output (Dict[str, Union[str, np.ndarray, int, bool]]): The output data containing the transcripted \
                 question data, the TTS generated answer audio, end flag for the current \
@@ -855,25 +901,38 @@ class CosyVoiceTTSHandler(BaseHandler):
 
         self.working_event.set()
 
-        llm_sentence = inputs['data']
+        text_sentence = inputs['text']
         uid = inputs['uid']
-        console.print(f"[green]{time.ctime()}\tASSISTANT: {llm_sentence}")
+        console.print(f"[green]{time.ctime()}\tASSISTANT: {text_sentence}")
         audio_queue = Queue()
         ref_wav_path = os.path.join(self.input_folder, 'ref_wav', self.ref['ref_wav_path'])
         total_cnt = -1
 
         prompt_speech_16k = load_wav(ref_wav_path, 16000)
-        tts_gen_kwargs = dict(
-            tts_text=llm_sentence,
-            prompt_text=self.ref['prompt_text'],
-            prompt_speech_16k=prompt_speech_16k,
-            stream=False,
-        )
+        source_speech_16k = inputs["audio"]
+        if source_speech_16k is not None:
+            if len(source_speech_16k.shape) == 1:
+                source_speech_16k = source_speech_16k[np.newaxis, ...] 
+            gen_kwargs = dict(
+                source_speech_16k=source_speech_16k,
+                prompt_speech_16k=prompt_speech_16k,
+                stream=False,
+                speed=1.0,
+            )
+            gen_fn = self.model.inference_vc
+        else:
+            gen_kwargs = dict(
+                tts_text=text_sentence,
+                prompt_text=self.ref['prompt_text'],
+                prompt_speech_16k=prompt_speech_16k,
+                stream=False,
+            )
+            gen_fn = self.model.inference_zero_shot
 
         def infer_fn():
             nonlocal total_cnt
             try:
-                for item in self.model.inference_zero_shot(**tts_gen_kwargs):
+                for item in gen_fn(**gen_kwargs):
                     audio = item["tts_speech"]
                     # original audio returned from the model is 22.05kHz, resample it to 16kHz, which is the default
                     # sample rate of the whole pipeline
@@ -897,9 +956,11 @@ class CosyVoiceTTSHandler(BaseHandler):
         thread.start()
 
         i = 0
+        chunks = []
         while True:
             try:
                 audio_chunk = audio_queue.get(timeout=0.2)
+                chunks.append(audio_chunk)
             except Empty:
                 if self.cur_conn_end_event.is_set():
                     logger.info("Stop TTS generation due to the current connection is end")
@@ -912,13 +973,18 @@ class CosyVoiceTTSHandler(BaseHandler):
             if audio_chunk is self.stop_signal:
                 break
             end_flag = True
+            if self.save_data:
+                save_fn(
+                    f"vc_data/{uid}_{inputs['user_input_count']}_output.json",
+                    {"audio": np.concatenate(chunks, axis=0), "text": inputs['text'], "time": time.ctime()}
+                )
             if i == 0:
                 if pipeline_start is not None:
                     logger.info(f"[green]{time.ctime()}\tTime to first user audio input: {perf_counter() - pipeline_start:.3f}")
                     console.print(f"[green]{time.ctime()}\tTime to first user audio input: {perf_counter() - pipeline_start:.3f}")
                 yield {
                     'question_text': None,
-                    'answer_text': inputs['data'],
+                    'answer_text': text_sentence,
                     "answer_audio": audio_chunk,
                     "end_flag": end_flag,
                     "user_input_count": inputs['user_input_count'],
@@ -927,7 +993,7 @@ class CosyVoiceTTSHandler(BaseHandler):
             else:
                 yield {
                     'question_text': None,
-                    'answer_text': inputs['data'],
+                    'answer_text': text_sentence,
                     "answer_audio": audio_chunk,
                     "end_flag": end_flag,
                     "user_input_count": inputs['user_input_count'],
@@ -955,6 +1021,8 @@ def main(args) -> None:
     torch.manual_seed(0)
     # torch compile logs
     # torch._logging.set_logs(graph_breaks=True, recompiles=True, cudagraphs=True)
+    if args.save_data:
+        os.makedirs("vc_data", exist_ok=True)
 
     # 1. Build the pipeline
     stop_event = Event()
@@ -976,6 +1044,7 @@ def main(args) -> None:
         model_name=args.stt_model_name,
         device=args.device,
         dtype=args.stt_dtype,
+        save_data=args.save_data,
     )
     tts = CosyVoiceTTSHandler(
         stop_event,
@@ -988,6 +1057,7 @@ def main(args) -> None:
         device=args.device,
         dtype=args.tts_dtype,
         ref_dir=args.ref_dir,
+        save_data=args.save_data,
     )
 
     recv_handler = SocketVADReceiver(
@@ -1027,6 +1097,12 @@ if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser(description="CleanVC Arguments")
+    # Common
+    parser.add_argument(
+        "--save_data",
+        action="store_true",
+        help="Whether to save audio/text data during processing. Data will be saved into `vc_data` directory."
+    )
     # Socket Recevier and VAD
     parser.add_argument(
         "--recv_host",

@@ -779,7 +779,7 @@ class ParaFormerSTTHandler(BaseHandler):
             - output (Dict[str, Union[str, int, bool]]): The output data containing the ASR result, user id, bool flag \
                 about audio/text input and user input count.
         """
-        logger.info("inference ASR pacaformer...")
+        logger.info("inference ASR paraformer...")
         spoken_prompt, user_input_count, uid = inputs["data"], inputs["user_input_count"], inputs["uid"]
 
         global pipeline_start
@@ -1468,6 +1468,7 @@ class CosyVoiceTTSHandler(BaseHandler):
         for item in self.ref_list:
             ref_wav_path = os.path.join(self.input_folder, 'ref_wav', item['ref_wav_path'])
             prompt_speech_16k = load_wav(ref_wav_path, 16000)
+
             tts_gen_kwargs = dict(
                 tts_text="收到好友从远方寄来的生日礼物，那份意外的惊喜与深深的祝福让我心中充满了甜蜜的快乐，笑容如花儿般绽放。",
                 prompt_text=item['prompt_text'],
