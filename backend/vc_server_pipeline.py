@@ -36,8 +36,8 @@ except LookupError:
 
 # caching allows ~50% compilation time reduction
 # see https://docs.google.com/document/d/1y5CRfMLdwEoF1nTk9q8qEu1mgMUuUtvhklPKJ2emLU8/edit#heading=h.o2asbxsrp1ma
-# CURRENT_DIR = Path(__file__).resolve().parent
-# os.environ["TORCHINDUCTOR_CACHE_DIR"] = os.path.join(CURRENT_DIR, "tmp")
+CURRENT_DIR = os.path.dirname(__file__)
+os.environ["TORCHINDUCTOR_CACHE_DIR"] = os.path.join(CURRENT_DIR, "compile_tmp")
 # torch._inductor.config.fx_graph_cache = True
 # # mind about this parameter ! should be >= 2 * number of padded prompt sizes for TTS
 # torch._dynamo.config.cache_size_limit = 15
@@ -679,7 +679,7 @@ class ParaFormerSTTHandler(BaseHandler):
             model_name: str,
             device: str = "cuda",
             dtype: str = "float16",
-            compile_mode: Optional[str] = None,
+            compile: Optional[bool] = True,
             save_data: Optional[bool] = False,
     ) -> None:
         """
@@ -691,13 +691,13 @@ class ParaFormerSTTHandler(BaseHandler):
             - model_name (str): The name of the model to use.
             - device (str): The device to use for processing.
             - dtype (str): The data type to use for processing.
-            - compile_mode (Optional[str]): The compile mode to use for processing the model.
+            - compile (Optional[bool]): Whether to use `torch.compile` to speed up the model.
             - save_data (Optional[bool]): Whether to save processed data into `s2d_data` directory.
         """
         super().__init__(stop_event, cur_conn_end_event, queue_in, queue_out)
         self.device = device
         self.torch_dtype = getattr(torch, dtype)
-        self.compile_mode = compile_mode
+        self.compile = compile
         self.save_data = save_data
 
         prefix = model_name
@@ -720,16 +720,34 @@ class ParaFormerSTTHandler(BaseHandler):
         )
 
         # compile
-        # if self.compile_mode:
-        #     self.model.generation_config.cache_implementation = "static"
-        #     self.model.forward = torch.compile(self.model.forward, mode=self.compile_mode, fullgraph=True)
-        # self.warmup()
+        if self.compile:
+            self.model.model = torch.compile(self.model.model, mode="default", fullgraph=True)
+            print(self.model.model)
+        self.warmup()
 
     def warmup(self) -> None:
         """
         Model warm-up to improve the model's responsiveness and performance in real-world use.
         """
-        raise NotImplementedError
+        logger.info(f"Warming up {self.__class__.__name__}")
+
+        n_steps = 10
+        dummy_input = torch.randn((160000, ))  # to device will be implemented inside paraformer
+
+        start_event = torch.cuda.Event(enable_timing=True)
+        end_event = torch.cuda.Event(enable_timing=True)
+        torch.cuda.synchronize()
+        start_event.record()
+
+        for _ in range(n_steps):
+            _ = self.model.generate(dummy_input, batch_size_s=300, batch_size_threshold_s=60)
+
+        end_event.record()
+        torch.cuda.synchronize()
+
+        logger.info(
+            f"{self.__class__.__name__}:  warmed up! time: {start_event.elapsed_time(end_event) * 1e-3:.3f} s"
+        )
 
     def process(self, inputs: Dict[str, Union[np.ndarray, str, int]]) -> Dict[str, Union[str, int, bool]]:
         """
