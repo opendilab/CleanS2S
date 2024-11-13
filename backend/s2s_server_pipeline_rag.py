@@ -1,3 +1,4 @@
+from dataclasses import asdict
 from typing import List, Dict
 import os
 import json
@@ -18,10 +19,22 @@ from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain_community.vectorstores.chroma import Chroma
 from langchain.chains import RetrievalQA
 from langchain_openai import ChatOpenAI
-from lightrag.llm import openai_complete_if_cache, hf_embedding
 from transformers import AutoModel, AutoTokenizer
+
+# LightRAG
+from lightrag.llm import openai_complete_if_cache, hf_embedding
 from lightrag import LightRAG, QueryParam
-from lightrag.utils import EmbeddingFunc
+from lightrag.utils import EmbeddingFunc, locate_json_string_body_from_string
+from lightrag.base import (
+    BaseGraphStorage,
+    BaseKVStorage,
+    BaseVectorStorage,
+    TextChunkSchema,
+    QueryParam,
+)
+from lightrag.prompt import GRAPH_FIELD_SEP, PROMPTS
+from lightrag.operate import _build_local_query_context
+from lightrag.lightrag import always_get_an_event_loop
 
 from s2s_server_pipeline import Chat, ThreadManager, SocketSender, SocketVADReceiver, ParaFormerSTTHandler, \
     CosyVoiceTTSHandler, LanguageModelHandler, LanguageModelAPIHandler, logger
@@ -354,7 +367,67 @@ class MyLightRAG:
         """
         Search the information from the knowledge graph given a query.
         """
-        return self.rag.query(query, param=QueryParam(mode=self.mode))
+
+        async def _local_query(
+                query,
+                knowledge_graph_inst: BaseGraphStorage,
+                entities_vdb: BaseVectorStorage,
+                relationships_vdb: BaseVectorStorage,
+                text_chunks_db: BaseKVStorage[TextChunkSchema],
+                query_param: QueryParam,
+                global_config: dict,
+        ) -> str:
+            context = None
+            use_model_func = global_config["llm_model_func"]
+
+            kw_prompt_temp = PROMPTS["keywords_extraction"]
+            kw_prompt = kw_prompt_temp.format(query=query)
+            result = await use_model_func(kw_prompt)
+            json_text = locate_json_string_body_from_string(result)
+
+            try:
+                keywords_data = json.loads(json_text)
+                keywords = keywords_data.get("low_level_keywords", [])
+                keywords = ", ".join(keywords)
+            except json.JSONDecodeError:
+                try:
+                    result = (
+                        result.replace(kw_prompt[:-1], "")
+                            .replace("user", "")
+                            .replace("model", "")
+                            .strip()
+                    )
+                    result = "{" + result.split("{")[1].split("}")[0] + "}"
+
+                    keywords_data = json.loads(result)
+                    keywords = keywords_data.get("low_level_keywords", [])
+                    keywords = ", ".join(keywords)
+                # Handle parsing error
+                except json.JSONDecodeError as e:
+                    return 'failed'
+            if keywords:
+                context = await _build_local_query_context(
+                    keywords,
+                    knowledge_graph_inst,
+                    entities_vdb,
+                    text_chunks_db,
+                    query_param,
+                )
+            return context
+
+        def _query(rag, query: str, param: QueryParam = QueryParam()) -> str:
+            loop = always_get_an_event_loop()
+            return loop.run_until_complete(_local_query(
+                    query,
+                    rag.chunk_entity_relation_graph,
+                    rag.entities_vdb,
+                    rag.relationships_vdb,
+                    rag.text_chunks,
+                    param,
+                    asdict(rag),
+                ))
+
+        return [_query(self.rag, query, param=QueryParam(mode=self.mode))]
 
     def retrival_qa_chain_from_db(self, query: str) -> str:
         raise NotImplementedError
@@ -421,6 +494,7 @@ class RAGLanguageModelHelper:
         self.tmp_dir = f"ragtmp/{str(uuid4())[:8]}/"
         self.history_keywords = ""
         self.search = WebSearchHelper()
+        self.rag_backend = rag_backend
 
         if rag_backend == 'base':
             self.rag = RAG(
@@ -508,7 +582,7 @@ class RAGLanguageModelHelper:
         original_messages = [
             {
                 "role": "system",
-                "content": self.original_system_prompt + f"\n尽量控制在{int(0.67*self.max_new_tokens)}字以内"
+                "content": self.original_system_prompt + f"\n尽量控制在{int(0.67 * self.max_new_tokens)}字以内"
             },
             *chat.to_list(),
             # {"role": "user", "content": f"用户问题：{prompt}\n问题相关信息总结：{summary}\n互联网上的话题相关观点：{rag_result_str}\n"}
