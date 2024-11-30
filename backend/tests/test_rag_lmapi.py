@@ -1,3 +1,4 @@
+import warnings
 from threading import Event
 import os
 import sys
@@ -6,13 +7,13 @@ sys.path.append('..')
 from s2s_server_pipeline_rag import RAGLanguageModelHelper, RAGLanguageModelAPIHandler
 
 
-def check_environ():
-    embedding_model_name = os.getenv("EMBEDDING_MODEL_NAME")
-    if not embedding_model_name:
-        assert False, 'No embedding model name given.'
-    llm_api_key = os.getenv("LLM_API_KEY")
-    if not llm_api_key:
-        assert False, 'No llm api key given.'
+def check_illegal_environ():
+    environs = ['EMBEDDING_MODEL_NAME', 'LLM_API_KEY']
+    illegals = []
+    for env in environs:
+        if os.getenv(env) is None:
+            illegals.append(env)
+    return illegals
 
 
 def main():
@@ -21,10 +22,9 @@ def main():
     cur_conn_end_event = Event()
     model_name = "deepseek-chat"
     model_url = "https://api.deepseek.com"
-    try:
-        check_environ()
-    except AssertionError:
-        print('Something is wrong with your environment variables, please check it.')
+    bad_vars = check_illegal_environ()
+    if len(bad_vars) > 0:
+        warnings.warn(f"Some environment variables are not set, which can be problematic: {bad_vars}")
     embedding_model_name = os.getenv("EMBEDDING_MODEL_NAME")
 
     rag = RAGLanguageModelHelper(model_name, model_url, 256, embedding_model_name, rag_backend='base')
@@ -50,10 +50,11 @@ def main():
     generator = lm.process(inputs)
     outputs = ''
     for t in generator:
-        if isinstance(t, str):
-            outputs += t
-        elif isinstance(t, dict):
-            outputs += ''.join(list(t.values()))
+        answer = t['answer_text']
+        if isinstance(answer, str):
+            outputs += answer
+        elif isinstance(answer, dict):
+            outputs += ''.join(list(answer.values()))
     print(f'end: {outputs}')
 
 
