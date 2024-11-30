@@ -33,7 +33,7 @@ from lightrag.base import (
     QueryParam,
 )
 from lightrag.prompt import GRAPH_FIELD_SEP, PROMPTS
-from lightrag.operate import _build_query_context
+from lightrag.operate import _build_local_query_context
 from lightrag.lightrag import always_get_an_event_loop
 
 from s2s_server_pipeline import Chat, ThreadManager, SocketSender, SocketVADReceiver, ParaFormerSTTHandler, \
@@ -353,7 +353,10 @@ class MyLightRAG:
         """
         The embedding process of LightRAG is to insert new documents into the knowledge graph.
         """
-        self.rag.insert(self.documents)
+        async def async_insert():
+            await self.rag.ainsert(self.documents)
+
+        asyncio.run(async_insert())
 
     def load_db(self) -> None:
         # Placeholder function.
@@ -406,7 +409,7 @@ class MyLightRAG:
                 except json.JSONDecodeError as e:
                     return 'failed'
             if keywords:
-                context = await _build_query_context(
+                context = await _build_local_query_context(
                     keywords,
                     knowledge_graph_inst,
                     entities_vdb,
