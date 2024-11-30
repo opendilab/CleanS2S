@@ -33,7 +33,7 @@ from lightrag.base import (
     QueryParam,
 )
 from lightrag.prompt import GRAPH_FIELD_SEP, PROMPTS
-from lightrag.operate import _build_local_query_context
+from lightrag.operate import _build_query_context
 from lightrag.lightrag import always_get_an_event_loop
 
 from s2s_server_pipeline import Chat, ThreadManager, SocketSender, SocketVADReceiver, ParaFormerSTTHandler, \
@@ -406,7 +406,7 @@ class MyLightRAG:
                 except json.JSONDecodeError as e:
                     return 'failed'
             if keywords:
-                context = await _build_local_query_context(
+                context = await _build_query_context(
                     keywords,
                     knowledge_graph_inst,
                     entities_vdb,
@@ -418,14 +418,14 @@ class MyLightRAG:
         def _query(rag, query: str, param: QueryParam = QueryParam()) -> str:
             loop = always_get_an_event_loop()
             return loop.run_until_complete(_local_query(
-                    query,
-                    rag.chunk_entity_relation_graph,
-                    rag.entities_vdb,
-                    rag.relationships_vdb,
-                    rag.text_chunks,
-                    param,
-                    asdict(rag),
-                ))
+                query,
+                rag.chunk_entity_relation_graph,
+                rag.entities_vdb,
+                rag.relationships_vdb,
+                rag.text_chunks,
+                param,
+                asdict(rag),
+            ))
 
         return [_query(self.rag, query, param=QueryParam(mode=self.mode))]
 
