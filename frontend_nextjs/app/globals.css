@@ -57,3 +57,29 @@
     @apply bg-background text-foreground;
   }
 }
+
+
+body {
+  min-height: 100vh;
+  padding: 2rem;
+}
+
+
+
+.container {
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+@media (max-width: 768px) {
+  body {
+    padding: 0.5rem;
+  }
+}
+
+.dark .gradient-bg-dark {
+  background: linear-gradient(135deg, #1a1c2a, #2d1f2d);
+}
+.gradient-bg {
+  background: linear-gradient(135deg, #fff6e5, #ffeef2);
+}

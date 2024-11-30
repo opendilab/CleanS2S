@@ -24,6 +24,7 @@ import {
   useVoiceClient,
   type VoiceReadyState,
 } from './useVoiceClient';
+import { errorToaster } from './toaster'
 
 type VoiceError =
   | { type: 'socket_error'; message: string; error?: Error }
@@ -41,7 +42,7 @@ type VoiceStatus =
     };
 
 export type VoiceContextType = {
-  connect: () => Promise<void>;
+  connect: (config: SocketConfig) => Promise<void>;
   disconnect: () => void;
   fft: number[];
   isMuted: boolean;
@@ -235,7 +236,7 @@ export const VoiceProvider: FC<VoiceProviderProps> = ({
     ),
   });
 
-  const connect = useCallback(async () => {
+  const connect = useCallback(async (runtimeConfig: SocketConfig) => {
     updateError(null);
     setStatus({ value: 'connecting' });
     const permission = await getStream();
@@ -246,13 +247,14 @@ export const VoiceProvider: FC<VoiceProviderProps> = ({
         message: 'Microphone permission denied',
       };
       updateError(error);
+      errorToaster("没有麦克风权限,请修改浏览器相关设置")
       return Promise.reject(error);
     }
 
     try {
       await client
         .connect({
-          ...config,
+          ...runtimeConfig,
         })
         .then(() => {
           if (

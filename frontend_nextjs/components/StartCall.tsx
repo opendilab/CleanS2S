@@ -5,9 +5,10 @@ import { AnimatePresence, motion } from "framer-motion";
 import { Phone } from "lucide-react";
 import { useVoice } from "./VoiceProvider";
 import { Button } from "./ui/button";
+import CardPanel from "./CardPanel";
 
 export default function StartCall() {
-  const { status, connect } = useVoice();
+  const { status } = useVoice();
 
   return (
     <AnimatePresence>
@@ -23,34 +24,7 @@ export default function StartCall() {
             exit: { opacity: 0 },
           }}
         >
-          <AnimatePresence>
-            <motion.div
-              variants={{
-                initial: { scale: 0.5 },
-                enter: { scale: 1 },
-                exit: { scale: 0.5 },
-              }}
-            >
-              <Button
-                className={"z-50 flex items-center gap-1.5"}
-                onClick={() => {
-                  connect()
-                    .then(() => {})
-                    .catch(() => {})
-                    .finally(() => {});
-                }}
-              >
-                <span>
-                  <Phone
-                    className={"size-4 opacity-50"}
-                    strokeWidth={2}
-                    stroke={"currentColor"}
-                  />
-                </span>
-                <span>开始对话</span>
-              </Button>
-            </motion.div>
-          </AnimatePresence>
+          <CardPanel />
         </motion.div>
       ) : null}
     </AnimatePresence>

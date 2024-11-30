@@ -10,7 +10,6 @@ export const metadata: Metadata = {
   title: "CleanS2S - Speech to Speech Agent",
   description: "CleanS2S next.js Interface",
   icons: {
-    icon: '/favicon.ico',
     shortcut: '/favicon-16x16.png',
     apple: '/apple-touch-icon.png'
   }
@@ -22,13 +21,13 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <head />
       <body
         className={cn(
           GeistSans.variable,
           GeistMono.variable,
-          "flex flex-col min-h-screen"
+          "flex flex-col min-h-screen gradient-bg gradient-bg-dark"
         )}
       >
         <Nav />

@@ -1,6 +1,8 @@
 from threading import Event
 import os
 import sys
+import time
+import torch
 import torchaudio
 
 sys.path.append('..')
@@ -21,6 +23,7 @@ def main():
         0,
         0,  # placeholder
         model_name=model_name,
+        compile=True,
     )
     # test audio input
     for item in os.listdir(audio_dir):
@@ -35,9 +38,13 @@ def main():
             'uid': 'test_uid',
         }
         try:
+            start_time = time.time()
             generator = model.process(inputs)
             outputs = [t for t in generator]
-        except:
+            torch.cuda.synchronize()
+            print(f"inference time: {time.time() - start_time}")
+        except Exception as e:
+            print(repr(e))
             continue
         assert all(o['audio_input'] for o in outputs)
         prompt = [o['data'] for o in outputs]

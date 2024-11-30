@@ -1,5 +1,6 @@
 from typing import Dict, List, Optional, Union, Any
 from abc import ABC, abstractmethod
+from datetime import datetime
 import logging
 import os
 import re
@@ -37,8 +38,8 @@ except LookupError:
 
 # caching allows ~50% compilation time reduction
 # see https://docs.google.com/document/d/1y5CRfMLdwEoF1nTk9q8qEu1mgMUuUtvhklPKJ2emLU8/edit#heading=h.o2asbxsrp1ma
-# CURRENT_DIR = Path(__file__).resolve().parent
-# os.environ["TORCHINDUCTOR_CACHE_DIR"] = os.path.join(CURRENT_DIR, "tmp")
+CURRENT_DIR = os.path.dirname(__file__)
+os.environ["TORCHINDUCTOR_CACHE_DIR"] = os.path.join(CURRENT_DIR, "compile_tmp")
 # torch._inductor.config.fx_graph_cache = True
 # # mind about this parameter ! should be >= 2 * number of padded prompt sizes for TTS
 # torch._dynamo.config.cache_size_limit = 15
@@ -82,6 +83,24 @@ CLEANS2S_SMART_POST_QUESTION_PROMPT = """
 对上文进行分析，判断语境是否生成联想问题，如果是，请生成基于上文信息，用户可能还会问的3个问题，格式规范为：【用户可能想问】：<问题1>|<问题2>|<问题3>。如果不是，输出"空"。
 """
 CLEANS2S_SMART_POST_QUESTION_PATTERN = r"【用户可能想问】：([^|]+)\|([^|]+)\|([^|]+)"
+
+
+def get_readable_time(timestamp: float) -> str:
+    dt_object = datetime.fromtimestamp(timestamp)
+    milliseconds = dt_object.microsecond // 1000
+    readable_time = dt_object.strftime("%Y-%m-%d-%H-%M-%S") + f"-{milliseconds:03}"
+    return readable_time
+
+
+def save_fn(filename: str, data: Any) -> None:
+    """Data type: numpy.array, str, int, float, None"""
+    for key, value in data.items():
+        if isinstance(value, np.ndarray):
+            np_data_name = f"{filename.split('.')[0]}_audio.npy"
+            np.save(np_data_name, value)
+            data[key] = np_data_name
+    with open(filename, 'w', encoding='utf-8') as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
 
 
 class ThreadManager:
@@ -698,7 +717,8 @@ class ParaFormerSTTHandler(BaseHandler):
             model_name: str,
             device: str = "cuda",
             dtype: str = "float16",
-            compile_mode: Optional[str] = None,
+            compile: Optional[bool] = True,
+            save_data: Optional[bool] = False,
     ) -> None:
         """
         Arguments:
@@ -709,12 +729,14 @@ class ParaFormerSTTHandler(BaseHandler):
             - model_name (str): The name of the model to use.
             - device (str): The device to use for processing.
             - dtype (str): The data type to use for processing.
-            - compile_mode (Optional[str]): The compile mode to use for processing the model.
+            - compile (Optional[bool]): Whether to use `torch.compile` to speed up the model.
+            - save_data (Optional[bool]): Whether to save processed data into `s2d_data` directory.
         """
         super().__init__(stop_event, cur_conn_end_event, queue_in, queue_out)
         self.device = device
         self.torch_dtype = getattr(torch, dtype)
-        self.compile_mode = compile_mode
+        self.compile = compile
+        self.save_data = save_data
 
         prefix = model_name
         # vad model and punc model are necessary for the Paraformer model
@@ -736,16 +758,34 @@ class ParaFormerSTTHandler(BaseHandler):
         )
 
         # compile
-        # if self.compile_mode:
-        #     self.model.generation_config.cache_implementation = "static"
-        #     self.model.forward = torch.compile(self.model.forward, mode=self.compile_mode, fullgraph=True)
-        # self.warmup()
+        if self.compile:
+            self.model.model = torch.compile(self.model.model, mode="default", fullgraph=True)
+            print(self.model.model)
+        self.warmup()
 
     def warmup(self) -> None:
         """
         Model warm-up to improve the model's responsiveness and performance in real-world use.
         """
-        raise NotImplementedError
+        logger.info(f"Warming up {self.__class__.__name__}")
+
+        n_steps = 10
+        dummy_input = torch.randn((160000, ))  # to device will be implemented inside paraformer
+
+        start_event = torch.cuda.Event(enable_timing=True)
+        end_event = torch.cuda.Event(enable_timing=True)
+        torch.cuda.synchronize()
+        start_event.record()
+
+        for _ in range(n_steps):
+            _ = self.model.generate(dummy_input, batch_size_s=300, batch_size_threshold_s=60)
+
+        end_event.record()
+        torch.cuda.synchronize()
+
+        logger.info(
+            f"{self.__class__.__name__}:  warmed up! time: {start_event.elapsed_time(end_event) * 1e-3:.3f} s"
+        )
 
     def process(self, inputs: Dict[str, Union[np.ndarray, str, int]]) -> Dict[str, Union[str, int, bool]]:
         """
@@ -757,7 +797,7 @@ class ParaFormerSTTHandler(BaseHandler):
             - output (Dict[str, Union[str, int, bool]]): The output data containing the ASR result, user id, bool flag \
                 about audio/text input and user input count.
         """
-        logger.info("inference ASR pacaformer...")
+        logger.info("inference ASR paraformer...")
         spoken_prompt, user_input_count, uid = inputs["data"], inputs["user_input_count"], inputs["uid"]
 
         global pipeline_start
@@ -766,6 +806,11 @@ class ParaFormerSTTHandler(BaseHandler):
         # user directly send text question
         if isinstance(spoken_prompt, str):
             console.print(f"[yellow]{time.ctime()}\tUSER: {spoken_prompt}")
+            if self.save_data:
+                save_fn(
+                    f's2s_data/{uid}_{user_input_count}_input.json',
+                    {"audio": None, "text": spoken_prompt, "audio_input": False, "time": time.ctime()}
+                )
             yield {"data": spoken_prompt, "user_input_count": user_input_count, "uid": uid, "audio_input": False}
         else:
             res = self.model.generate(input=spoken_prompt, batch_size_s=300, batch_size_threshold_s=60)
@@ -778,6 +823,11 @@ class ParaFormerSTTHandler(BaseHandler):
 
             logger.info("finish ASR paraformer inference")
             console.print(f"[yellow]{time.ctime()}\tUSER: {pred_text}")
+            if self.save_data:
+                save_fn(
+                    f's2s_data/{uid}_{user_input_count}_input.json',
+                    {"audio": spoken_prompt, "text": pred_text, "audio_input": True, "time": time.ctime()}
+                )
 
             yield {"data": pred_text, "user_input_count": user_input_count, "uid": uid, "audio_input": True}
 
@@ -1381,6 +1431,7 @@ class CosyVoiceTTSHandler(BaseHandler):
             device: str = "cuda",
             dtype: str = "float32",
             compile_mode: Optional[str] = None,
+            save_data: Optional[bool] = False,
     ) -> None:
         """
         Arguments:
@@ -1395,6 +1446,7 @@ class CosyVoiceTTSHandler(BaseHandler):
             - device (str): The device to use for TTS model.
             - dtype (str): The data type to use for processing. Usually 'bfloat16' or 'float16' or 'float32'.
             - compile_mode (Optional[str]): The compilation mode to use for the model. If None, no compilation is used.
+            - save_data (Optional[bool]): Whether to save processed data into `s2d_data` directory.
         """
         super().__init__(stop_event, cur_conn_end_event, queue_in, queue_out)
         self.should_listen = should_listen
@@ -1402,6 +1454,7 @@ class CosyVoiceTTSHandler(BaseHandler):
         self.device = device
         self.torch_dtype = getattr(torch, dtype)
         self.compile_mode = compile_mode
+        self.save_data = save_data
         self.working_event = Event()
 
         self.model = CosyVoice(model_name)
@@ -1433,6 +1486,7 @@ class CosyVoiceTTSHandler(BaseHandler):
         for item in self.ref_list:
             ref_wav_path = os.path.join(self.input_folder, 'ref_wav', item['ref_wav_path'])
             prompt_speech_16k = load_wav(ref_wav_path, 16000)
+
             tts_gen_kwargs = dict(
                 tts_text="收到好友从远方寄来的生日礼物，那份意外的惊喜与深深的祝福让我心中充满了甜蜜的快乐，笑容如花儿般绽放。",
                 prompt_text=item['prompt_text'],
@@ -1522,9 +1576,11 @@ class CosyVoiceTTSHandler(BaseHandler):
             thread.start()
 
             i = 0
+            chunks = []
             while True:
                 try:
                     audio_chunk = audio_queue.get(timeout=0.2)
+                    chunks.append(audio_chunk)
                 except Empty:
                     if self.interruption_event.is_set() or self.cur_conn_end_event.is_set():
                         logger.info("Stop TTS generation due to the current connection is end")
@@ -1537,6 +1593,12 @@ class CosyVoiceTTSHandler(BaseHandler):
                 if audio_chunk is self.stop_signal:
                     break
                 end_flag = inputs['end_flag'] and i == total_cnt - 1
+                if self.save_data:
+                    readable_time = get_readable_time(time.time())
+                    save_fn(
+                        f"s2s_data/{uid}_{inputs['user_input_count']}_output_{readable_time}.json",
+                        {"audio": np.concatenate(chunks, axis=0), "text": inputs['answer_text'], "time": time.ctime()}
+                    )
                 if i == 0:
                     if pipeline_start is not None:
                         logger.info(f"[green]{time.ctime()}\tTime to first user audio input: {perf_counter() - pipeline_start:.3f}")
@@ -1580,6 +1642,8 @@ def main(args) -> None:
     torch.manual_seed(0)
     # torch compile logs
     # torch._logging.set_logs(graph_breaks=True, recompiles=True, cudagraphs=True)
+    if args.save_data:
+        os.makedirs("s2s_data", exist_ok=True)
 
     # 1. Build the pipeline
     stop_event = Event()
@@ -1602,6 +1666,7 @@ def main(args) -> None:
         model_name=args.stt_model_name,
         device=args.device,
         dtype=args.stt_dtype,
+        save_data=args.save_data,
     )
     lm_cls = LanguageModelAPIHandler if args.enable_llm_api else LanguageModelHandler
     lm = lm_cls(
@@ -1630,6 +1695,7 @@ def main(args) -> None:
         device=args.device,
         dtype=args.tts_dtype,
         ref_dir=args.ref_dir,
+        save_data=args.save_data,
     )
 
     recv_handler = SocketVADReceiver(
@@ -1669,6 +1735,12 @@ if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser(description="CleanS2S Arguments")
+    # Common
+    parser.add_argument(
+        "--save_data",
+        action="store_true",
+        help="Whether to save audio/text data during processing. Data will be saved into `s2s_data` directory."
+    )
     # Socket Recevier and VAD
     parser.add_argument(
         "--recv_host",

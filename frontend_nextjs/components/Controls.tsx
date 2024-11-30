@@ -5,7 +5,7 @@ import { useState, useEffect, useRef, ChangeEvent } from 'react';
 import Textarea from 'react-textarea-autosize'
 import { useVoice } from "./VoiceProvider";
 import { Button } from "./ui/button";
-import { Mic, MicOff, Volume2, VolumeX, Phone, BadgePlus, MessageSquareMore, CornerDownLeft } from "lucide-react";
+import { Mic, MicOff, Volume2, VolumeX, Phone, BadgePlus, MessageSquareMore, CornerDownLeft, Speech } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import { Toggle } from "./ui/toggle";
 import MicFFT from "./MicFFT";
@@ -100,10 +100,16 @@ export default function Controls() {
             onClick={handleNewTopic}
             className={"flex flex-row size-4 mb-2 justify-start border-none shadow-xl rounded-lg bg-accent h-8 w-8 p-1 cursor-pointer"}
           />
+          { enableTyping ? (
+          <Speech
+            onClick={handleEnableTyping}
+            className={"flex flex-row size-4 mb-2 justify-start border-none shadow-xl rounded-lg bg-accent h-8 w-8 p-1 cursor-pointer"}
+          />) : (
           <MessageSquareMore
             onClick={handleEnableTyping}
             className={"flex flex-row size-4 mb-2 justify-start border-none shadow-xl rounded-lg bg-accent h-8 w-8 p-1 cursor-pointer"}
           />
+          )}
           </div>
           <motion.div
             initial={{

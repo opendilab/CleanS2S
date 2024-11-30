@@ -3,6 +3,7 @@
 
 import { AnimatePresence, motion } from "framer-motion";
 import { ComponentRef, forwardRef } from "react";
+import { useState, useEffect } from 'react';
 import { BeatLoader } from 'react-spinners'
 import { ArrowDownToLine, ThumbsUp, AudioLines, ChevronRight, Dot } from "lucide-react";
 import { Tooltip } from 'react-tooltip'
@@ -13,6 +14,37 @@ import { generateEmptyFft } from './generateEmptyFft';
 
 var texts = {
   agentName: process.env.NEXT_PUBLIC_AGENT_NAME || "感染力大师",
+};
+
+
+interface StreamingContentProps {
+  content: string;
+  speed?: number;
+}
+
+const StreamingContent: React.FC<StreamingContentProps> = ({ 
+  content, 
+  speed = 100
+}) => {
+  const [displayedContent, setDisplayedContent] = useState<string>('');
+  const [currentIndex, setCurrentIndex] = useState<number>(0);
+
+  useEffect(() => {
+    if (currentIndex < content.length) {
+      const timer = setTimeout(() => {
+        setDisplayedContent(prev => prev + content[currentIndex]);
+        setCurrentIndex(prev => prev + 1);
+      }, speed);
+
+      return () => clearTimeout(timer);
+    }
+  }, [currentIndex, content, speed]);
+
+  return (
+    <span>
+      {displayedContent}
+    </span>
+  );
 };
 
 const Messages = forwardRef<
@@ -73,7 +105,7 @@ const Messages = forwardRef<
                     {msg.type == "user_message" ? "游客" : texts.agentName}
                   </div>
                   <div className="pb-1 px-3 flex flex-col">
-                    {content}
+                    {msg.type == "user_message" ? content : (<StreamingContent content={content || ""} />)}
                     {msg.type == "assistant_message" && (
                     <div className={"flex flex-row h-12 w-4/5 p-1 items-center border rounded-lg"} style={{ marginTop: '0.5rem', marginBottom: '0.5rem'}}>
                       <AudioLines 
