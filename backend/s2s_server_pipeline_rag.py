@@ -15,7 +15,7 @@ from concurrent.futures import ThreadPoolExecutor
 from openai import OpenAI
 from langchain_community.document_loaders import TextLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
-from langchain_community.embeddings import HuggingFaceEmbeddings
+from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_community.vectorstores.chroma import Chroma
 from langchain.chains import RetrievalQA
 from langchain_openai import ChatOpenAI

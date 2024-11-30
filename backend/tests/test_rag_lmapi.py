@@ -6,12 +6,25 @@ sys.path.append('..')
 from s2s_server_pipeline_rag import RAGLanguageModelHelper, RAGLanguageModelAPIHandler
 
 
+def check_environ():
+    embedding_model_name = os.getenv("EMBEDDING_MODEL_NAME")
+    if not embedding_model_name:
+        assert False, 'No embedding model name given.'
+    llm_api_key = os.getenv("LLM_API_KEY")
+    if not llm_api_key:
+        assert False, 'No llm api key given.'
+
+
 def main():
     stop_event = Event()
     interruption_event = Event()
     cur_conn_end_event = Event()
     model_name = "deepseek-chat"
     model_url = "https://api.deepseek.com"
+    try:
+        check_environ()
+    except AssertionError:
+        print('Something is wrong with your environment variables, please check it.')
     embedding_model_name = os.getenv("EMBEDDING_MODEL_NAME")
 
     rag = RAGLanguageModelHelper(model_name, model_url, 256, embedding_model_name, rag_backend='base')
@@ -35,7 +48,12 @@ def main():
         'audio_input': False,
     }
     generator = lm.process(inputs)
-    outputs = "".join([t["answer_text"] for t in generator])
+    outputs = ''
+    for t in generator:
+        if isinstance(t, str):
+            outputs += t
+        elif isinstance(t, dict):
+            outputs += ''.join(list(t.values()))
     print(f'end: {outputs}')
 
 
