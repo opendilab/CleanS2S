@@ -273,7 +273,7 @@ class RAG:
         self.documents = []
 
 
-class MyLightRAG:
+class CleanS2SLightRAG:
     """
     A class that implements the "LightRAG: Simple and Fast Retrieval-Augmented Generation".
     This class is used to retrieve information from the database and generate answers using a language model.
@@ -295,7 +295,7 @@ class MyLightRAG:
             - db_path (str): The local path to the database directory.
             - lm_model_name (str): The name of the language model API to use.
             - lm_model_url (str): The URL of the language model API.
-            - mode (str): which mode of searching should be used. This value can be chosen from
+            - mode (str): which mode of searching should be used. This value can be chosen from \
                 ["local", "global", "hybrid", "naive"]
         """
 
@@ -366,7 +366,7 @@ class MyLightRAG:
         # Placeholder function.
         return
 
-    def search_info(self, query: str) -> List:
+    def search_info(self, query: str, top_k: int = 1) -> List:
         """
         Search the information from the knowledge graph given a query.
         """
@@ -430,7 +430,7 @@ class MyLightRAG:
                 asdict(rag),
             ))
 
-        return [_query(self.rag, query, param=QueryParam(mode=self.mode))]
+        return [_query(self.rag, query, param=QueryParam(mode=self.mode, top_k=top_k))]
 
     def retrival_qa_chain_from_db(self, query: str) -> str:
         raise NotImplementedError
@@ -507,7 +507,7 @@ class RAGLanguageModelHelper:
                 db_path=self.db_path
             )
         elif rag_backend == 'light_rag':
-            self.rag = MyLightRAG(
+            self.rag = CleanS2SLightRAG(
                 lm_model_name=self.model_name,
                 lm_model_url=self.model_url,
                 embedding_model_name=self.embedding_model_name,
