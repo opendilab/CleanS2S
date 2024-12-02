@@ -7,6 +7,7 @@ import re
 import json
 import base64
 import random
+from pathlib import Path
 import time
 import threading
 from queue import Queue, Empty
@@ -1632,6 +1633,245 @@ class CosyVoiceTTSHandler(BaseHandler):
         """
         super().clear_current_state()
         self.ref = random.choice(self.ref_list)
+
+
+class LanguageModelAPIHandlerWithMemory(LanguageModelAPIHandler):
+    """
+    Handler class for interacting with the language model with memory through the API with the OpenAI interface.
+    """
+
+    def __init__(self, *args, path='anlingrong.txt', **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+
+        current_dir = Path(__file__).parent
+
+        self.prompt_path = current_dir / 'prompts'
+        with open(self.prompt_path / path, "r", encoding='utf-8') as f:
+            self.c_sys_prompt = f.read()
+        self.judge_type = ['敷衍', '延迟回复', '转移话题', '直白拒绝', '不回复', '正常回复']
+        self.que_len = 5
+        self.que_dict = {}
+        self.que_list = [''] * (self.que_len+2)
+        self.que_list[0] = []
+            #把关键事实拆分为多个要素
+        self.elements ={
+            '时间':'',
+            '地点':'',
+            '气候':'',
+            '人物':'',
+            '动作':'',
+            '态度':''
+            }
+        
+
+    def add(self, new_msg):
+        out_msg = self.que_list.pop(2)
+        self.que_list.append(new_msg)
+        if out_msg:
+            self.summary(out_msg)
+            self.fact_func(out_msg)
+    
+    def get(self):
+        fact = json.dumps(self.que_list[0][-self.que_len//2:], ensure_ascii=False)
+        summry = json.dumps(self.que_list[1], ensure_ascii=False)
+        hist = json.dumps(self.que_list[2:], ensure_ascii=False)
+        elements = json.dumps(self.elements, ensure_ascii=False)
+        return json.dumps({"关键事实": fact,
+                           "超限对话总结": summry,
+                           "关键事实要素": elements,
+                           "历史对话": hist}, ensure_ascii=False)
+        # return json.dumps({"关键事实": fact,
+        #                    "超限对话总结": summry}, ensure_ascii=False)
+    
+    def fact_func(self, msg):
+        with open(os.path.join(self.prompt_path, 'fact.txt'), "r", encoding='utf-8') as f:
+            f_sys_prompt = f.read()
+        old_fact = self.que_list[0][:-self.que_len//2]
+        self.que_list[0].append(self.mem_request("对话："+msg+"旧的关键事实："+str(old_fact), f_sys_prompt))
+        # self.que_list[0].append(gpt4("对话："+msg+"旧的关键事实："+str(old_fact), f_sys_prompt))
+
+    def summary(self, msg):
+        with open(os.path.join(self.prompt_path, 'sum.txt'), "r", encoding='utf-8') as f:
+            s_sys_prompt = f.read()
+        old_sum = self.que_list[1]
+        self.que_list[1] = self.mem_request("对话："+msg+"旧的总结："+old_sum, s_sys_prompt)
+        # self.que_list[1] = gpt4("对话："+msg+"旧的总结："+old_sum, s_sys_prompt)
+    
+    def inside_conflict(self, QA: str,element) -> bool: #判断QA和element是否冲突
+        with open(os.path.join(self.prompt_path, "inside_conflict.txt"), "r", encoding='utf-8') as f:
+            inside_conflict = f.read()
+        umsg = f'对话：{QA}, 要素名称：{element}, 要素内容：{self.elements[element]}'
+        # print(umsg)
+        sysp = inside_conflict
+        reject_bool = self.mem_request(umsg, sysp)
+        # print(reject_bool)
+        if 'True' in reject_bool:
+            return True
+        else:
+            return False
+
+    def panding(self, QA:str): # 判定用户的回答包含哪些要素，设置默认场景的要素
+        with open(os.path.join(self.prompt_path, "panding.txt"), "r", encoding='utf-8') as f:
+            panding_sys = f.read()
+        umsg = f"用户输出：{QA},关键事实要素字典：{self.elements}" 
+        sysp = panding_sys
+        elements_list = self.mem_request(umsg, sysp, isjson=True) 
+        # print("panding_element_list:", elements_list)
+        # print(type(elements_list))
+        # TODO 现在是特判，之后要更改panding.txt中的内容
+        if isinstance(elements_list, dict):
+            first_key = list(elements_list.keys())[0]
+            elements_list = elements_list[first_key]
+            if not isinstance(elements_list, list):
+                elements_list = []
+        return elements_list
+    
+    def reject(self, QA:str): 
+        for element in self.elements:
+            if self.elements[element] != '': # 已初始化
+                conflict = self.inside_conflict(QA, element)
+                if conflict: 
+                    with open(os.path.join(self.prompt_path, "reject.txt"), "r", encoding='utf-8') as f:
+                        reject_prompt = f.read()
+                    umsg = f"对话:{QA}, 要素:{element}:{self.elements[element]}" 
+                    sysp = reject_prompt
+                    reject = self.mem_request(umsg, sysp) 
+                    # print(reject)
+                    return True, reject   # reject:反驳依据和原因
+        return False, ''
+
+    def update(self, elements_list, QA):
+        for element in elements_list:
+            if self.elements[element] == '': # 未初始化
+                with open(os.path.join(self.prompt_path, "initialize.txt"), "r", encoding='utf-8') as f:
+                    initialize = f.read()
+                umsg = f"对话：{QA}, 要素：{element}"
+                sysp = initialize
+                initialization = self.mem_request(umsg, sysp)
+                self.elements[element] = initialization
+                #根据QA初始化element
+            else:
+                with open(os.path.join(self.prompt_path, "update.txt"), "r", encoding='utf-8') as f:
+                    update = f.read()
+                umsg = f"对话：{QA}, 要素：{element}, 要素内容：{self.elements[element]}"
+                sysp = update
+                updating = self.mem_request(umsg, sysp)
+                self.elements[element] += updating
+                #用QA更新element
+
+    def final(self, QA):
+        reject_result = self.reject(QA)
+        if reject_result[0]: #如果冲突
+            return reject_result[1]
+            # messages.append({"role":"user","content": reject_result[1]})
+            # messages[0]["content"] += reject_result[1]  #反驳prompt
+        else: 
+            elements_list = self.panding(QA)
+            # print("elements_list:", elements_list)
+            # print("type:", type(elements_list))
+            self.update(elements_list, QA)
+            # print(self.elements)
+            return ''
+        
+    def mem_request(self, umsg, sysp, temperatrue=0.6, isjson=False):
+        msg = [
+            {"role": "system", "content": sysp},
+            {"role": "user", "content": umsg},
+        ]
+
+        response = self.client.chat.completions.create(
+            model=self.model_name,
+            messages=msg,
+            max_tokens=self.max_new_tokens,
+            temperature=self.temperature,
+            top_p=0.95,
+            frequency_penalty=0,
+            presence_penalty=0,
+            stream=False,
+            logprobs=False,
+            response_format={"type": "json_object"} if isjson else None
+        )
+        t = response.choices[0].message.content 
+
+        if isjson:
+            try:
+                res = json.loads(t)
+            except json.JSONDecodeError:
+                res = t
+        else:
+            res = t
+
+        return res
+    
+    def judge(self, msg):
+        with open(self.prompt_path / "nci.txt", "r", encoding='utf-8') as f:
+            sys_p = f.read()
+        res = self.mem_request(msg, sys_p)
+        return res
+
+    def process(self, inputs: Dict[str, Union[str, int, bool]]) -> Dict[str, Union[str, int, bool]]:
+        """
+        Process the input acquired from queue_in (from ASR/STT) and generate the output of the language model API with
+        the stream paradigm, i.e., yield the generated subtext in real-time.
+        Arguments:
+            - inputs (Dict[str, Union[str, int, bool]): The input data acquired from queue_in. The data contains the \
+                str format audio transcripted data, user id(uid), bool flag to indicate whether the audio or the text \
+                input from user and integer user input count.
+        Returns (Yield):
+            - output (Dict[str, Union[str, int, bool]]): The output data containing the transcripted question text, \
+                the generated answer text, end flag for the current LLM API generation, uid and the user input count.
+        """
+
+        generator = super().process(inputs)
+        total_answer = ""
+        for ele in generator:
+            if isinstance(ele['answer_text'], str):
+                total_answer += ele['answer_text']
+            yield ele
+        self.add(json.dumps({"user": inputs['data'], "AI": total_answer}, ensure_ascii=False))
+
+    def _before_process(self, prompt: str, count: int) -> List[Dict[str, str]]:
+        """
+        Preparation chat messages before the generation process.
+        Arguments:
+            - prompt (str): The input prompt in current step.
+            - count (int): The user input count.
+        Returns:
+            - messages (List[Dict[str, str]): The chat messages.
+        """
+
+        his_msg = json.dumps(self.que_list[2:], ensure_ascii=False)
+        re_type = self.judge('历史对话：' + his_msg + 'user:' + prompt)
+        # re_type = self.judge(q)
+
+        if re_type in ["1", "2", "3", "4", "5", "6"]:
+            re_type = int(re_type)
+        elif re_type in self.judge_type:
+            re_type = self.judge_type.index(re_type) + 1
+        else:
+            re_type = 6
+
+        # 为了测速先不实装这两个情况
+        # if re_tyep == 2: # 延迟回复
+            # time.sleep(1000)
+        # elif re_tyep == 5: # 不回复
+        #     res = ''
+        # else: # 其他情况
+
+        def prompt_gen(QA):
+            res = self.c_sys_prompt
+            res += self.get()
+            k = self.final(QA)
+            return res
+        
+        sys_p = prompt_gen(prompt)
+        if re_type in [1, 3, 4]:
+            sys_p += f'# 指导思想：此次回复的指导思想为:{self.judge_type[re_type-1]}'
+        else:
+            sys_p += f'# 指导思想：此次回复的指导思想为:正常回复'
+        self.chat.init_chat({"role": 'system', "content": sys_p})
+        self.chat.append({"role": self.user_role, "content": prompt})
+        return self.chat.to_list()
 
 
 def main(args) -> None:
