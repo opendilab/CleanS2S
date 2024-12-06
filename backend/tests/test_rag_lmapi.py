@@ -1,13 +1,16 @@
-import warnings
 from threading import Event
 import os
 import sys
 
 sys.path.append('..')
 from s2s_server_pipeline_rag import RAGLanguageModelHelper, RAGLanguageModelAPIHandler
+from s2s_server_pipeline import logger
 
 
 def check_illegal_environ():
+    """
+    Check if the environment variables are set.
+    """
     environs = ['EMBEDDING_MODEL_NAME', 'LLM_API_KEY']
     illegals = []
     for env in environs:
@@ -24,12 +27,14 @@ def main():
     model_url = "https://api.deepseek.com"
     bad_vars = check_illegal_environ()
     if len(bad_vars) > 0:
-        warnings.warn(f"Some environment variables are not set, which can be problematic: {bad_vars}")
+        logger.info(f"Some environment variables are not set, which can be problematic: {bad_vars}")
     embedding_model_name = os.getenv("EMBEDDING_MODEL_NAME")
+    
+    # Use traditional RAG as rag backend:
+    # rag = RAGLanguageModelHelper(model_name, model_url, 256, embedding_model_name, rag_backend='base')
 
-    rag = RAGLanguageModelHelper(model_name, model_url, 256, embedding_model_name, rag_backend='base')
-    # To use LightRAG as rag backend:
-    # rag = RAGLanguageModelHelper(model_name, model_url, 256, embedding_model_name, rag_backend='light_rag')
+    # Use LightRAG as rag backend:
+    rag = RAGLanguageModelHelper(model_name, model_url, 256, embedding_model_name, rag_backend='light_rag')
 
     lm = RAGLanguageModelAPIHandler(
         stop_event,

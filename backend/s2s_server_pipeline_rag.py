@@ -223,7 +223,7 @@ class RAG:
             raise ValueError("Chroma database is not initialized yet")
         self.db.add_documents(self.documents)
 
-    def search_info(self, query: str) -> List:
+    def search_info(self, query: str, **kwargs) -> List:
         """
         Retrieve information based on a query string.
         Arguments:
@@ -333,6 +333,7 @@ class CleanS2SLightRAG:
                 )
             )
         )
+        self.rag.chunk_token_size = 4096
 
         self.lm_model_name = lm_model_name
         self.lm_model_url = lm_model_url
@@ -343,6 +344,10 @@ class CleanS2SLightRAG:
     def split_document(self, path: str, *arg, **kwargs) -> None:
         """
         Load documents one by one from each file.
+        Arguments:
+            - path (str): The path where the document is located.
+        Returns:
+            - None
         """
         document_file_list = glob.glob(os.path.join(path, "*.txt"))
         for i in range(len(document_file_list)):
@@ -353,10 +358,7 @@ class CleanS2SLightRAG:
         """
         The embedding process of LightRAG is to insert new documents into the knowledge graph.
         """
-        async def async_insert():
-            await self.rag.ainsert(self.documents)
-
-        asyncio.run(async_insert())
+        self.rag.insert(self.documents)
 
     def load_db(self) -> None:
         # Placeholder function.
@@ -366,13 +368,20 @@ class CleanS2SLightRAG:
         # Placeholder function.
         return
 
-    def search_info(self, query: str, top_k: int = 1) -> List:
+    def search_info(self, query: str, key_words, top_k: int = 1) -> List:
         """
         Search the information from the knowledge graph given a query.
+        Arguments:
+            - query (str): The query string.
+            - key_words (List[str]): The keywords to search for.
+            - top_k (int): The number of top results to return.
+        Returns:
+            - result (List): The list of retrieved information.
         """
 
         async def _local_query(
                 query,
+                keywords,
                 knowledge_graph_inst: BaseGraphStorage,
                 entities_vdb: BaseVectorStorage,
                 relationships_vdb: BaseVectorStorage,
@@ -380,48 +389,23 @@ class CleanS2SLightRAG:
                 query_param: QueryParam,
                 global_config: dict,
         ) -> str:
-            context = None
-            use_model_func = global_config["llm_model_func"]
-
-            kw_prompt_temp = PROMPTS["keywords_extraction"]
-            kw_prompt = kw_prompt_temp.format(query=query)
-            result = await use_model_func(kw_prompt)
-            json_text = locate_json_string_body_from_string(result)
-
-            try:
-                keywords_data = json.loads(json_text)
-                keywords = keywords_data.get("low_level_keywords", [])
-                keywords = ", ".join(keywords)
-            except json.JSONDecodeError:
-                try:
-                    result = (
-                        result.replace(kw_prompt[:-1], "")
-                            .replace("user", "")
-                            .replace("model", "")
-                            .strip()
-                    )
-                    result = "{" + result.split("{")[1].split("}")[0] + "}"
-
-                    keywords_data = json.loads(result)
-                    keywords = keywords_data.get("low_level_keywords", [])
-                    keywords = ", ".join(keywords)
-                # Handle parsing error
-                except json.JSONDecodeError as e:
-                    return 'failed'
-            if keywords:
-                context = await _build_local_query_context(
-                    keywords,
-                    knowledge_graph_inst,
-                    entities_vdb,
-                    text_chunks_db,
-                    query_param,
-                )
+            context = await _build_local_query_context(
+                keywords,
+                knowledge_graph_inst,
+                entities_vdb,
+                text_chunks_db,
+                query_param,
+            )
             return context
 
-        def _query(rag, query: str, param: QueryParam = QueryParam()) -> str:
+        def _query(rag, query: str, key_words: List[str], param: QueryParam = QueryParam()) -> str:
+            """
+            Search the information from the knowledge graph given a query.
+            """
             loop = always_get_an_event_loop()
             return loop.run_until_complete(_local_query(
                 query,
+                key_words,
                 rag.chunk_entity_relation_graph,
                 rag.entities_vdb,
                 rag.relationships_vdb,
@@ -430,7 +414,7 @@ class CleanS2SLightRAG:
                 asdict(rag),
             ))
 
-        return [_query(self.rag, query, param=QueryParam(mode=self.mode, top_k=top_k))]
+        return [_query(self.rag, query, key_words, param=QueryParam(mode=self.mode, top_k=top_k))]
 
     def retrival_qa_chain_from_db(self, query: str) -> str:
         raise NotImplementedError
@@ -561,12 +545,33 @@ class RAGLanguageModelHelper:
             os.makedirs(self.tmp_dir, exist_ok=True)
 
         # refine the search query
-        content = f"""
-        结合当前问题和历史关键词，提取用于互联网搜索的关键词，只返回关键词即可，关键词之间用空格分隔。
-        当前问题：{prompt}
-        历史关键词：{self.history_keywords}
-        """
-        search_query = "".join(self._call_llm([{"role": "user", "content": content}]))
+        kw_prompt_temp = PROMPTS["keywords_extraction"]
+        kw_prompt = kw_prompt_temp.format(query=prompt) + \
+                    "Ensure to reply the keywords with the same language as the query."
+        result = self._call_llm([{"role": "user", "content": kw_prompt}])
+        json_text = locate_json_string_body_from_string(result)
+
+        try:
+            keywords_data = json.loads(json_text)
+            keywords = keywords_data.get("low_level_keywords", [])
+            search_query = ", ".join(keywords)
+        except json.JSONDecodeError:
+            try:
+                result = (
+                    result.replace(kw_prompt[:-1], "")
+                        .replace("user", "")
+                        .replace("model", "")
+                        .strip()
+                )
+                result = "{" + result.split("{")[1].split("}")[0] + "}"
+
+                keywords_data = json.loads(result)
+                keywords = keywords_data.get("low_level_keywords", [])
+                search_query = ", ".join(keywords)
+            # Handle parsing error
+            except json.JSONDecodeError as e:
+                search_query = ""
+
         self.history_keywords = f"{search_query};{self.history_keywords}"
 
         # search more information at the beginning of the conversation (count == 1)
@@ -579,7 +584,7 @@ class RAGLanguageModelHelper:
         # self.nativerag.load_db()
         self.rag.embedding_process()
         # summary = self.rag.retrival_qa_chain_from_db(self.summary_prompt)
-        rag_result = self.rag.search_info(prompt)
+        rag_result = self.rag.search_info(prompt, key_words=self.history_keywords)
         # logger.info(f"summary:{summary}, result:{rag_result}")
         rag_result_str = '\n'.join(rag_result)
         original_messages = [
