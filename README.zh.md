@@ -302,7 +302,7 @@ pnpm dev --port 3001
 ```latex
 @misc{CleanS2S,
     title={CleanS2S: High-quality and streaming Speech-to-Speech interactive agent in a single file},
-    author={Niu, Yazhe and Hu, Shuai and Chen, Yun},
+    author={Niu, Yazhe and Hu, Shuai and Chen, Yun and Wang, Haolin},
     publisher={GitHub},
     howpublished={\url{https://github.com/opendilab/CleanS2S}},
     year={2024},

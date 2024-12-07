@@ -3,3 +3,5 @@ langchain_community
 langchain_openai
 sentence-transformers
 chromadb==0.5.3
+pydub
+git+https://github.com/HKUDS/LightRAG.git@6f40fad#egg=lightrag-hku
