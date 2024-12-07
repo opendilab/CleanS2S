@@ -275,10 +275,12 @@ pnpm dev --port 3001
 
 ## Roadmap
 - [x] 换声 (Voice Conversion) pipeline 支持（ASR + TTS）(即backend/vc_server_pipeline.py)
-- [ ] WebUI 优化（支持更多样的交互和功能）
+- [x] WebUI 优化（支持更多样的交互和功能）
 - [ ] 推理速度优化
 - [ ] 后端多用户支持
-- [ ] 更多提示词和 RAG 策略 (serper + jina + LightRAG)
+- [ ] 对话中的长期记忆和主动意图机制
+- [ ] 表情包等非文本交机制
+- [x] 更多提示词和 RAG 策略 (serper + jina + LightRAG)
 - [ ] 真实场景下的实用的声纹检测机制
 - [ ] 更多示例和评估工具
 - [ ] 自定义示例角色

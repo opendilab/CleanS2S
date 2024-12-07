@@ -284,10 +284,13 @@ P.S.: If you want to run the client locally, you should install node.js and pnpm
 
 ## Roadmap
 - [x] Voice Conversion Pipeline (ASR + TTS) (i.e., backend/vc_server_pipeline.py)
-- [ ] WebUI optimization (support more diverse interactions and functions)
+- [x] WebUI optimization (support more diverse interactions and functions)
 - [ ] Inference speed optimization
 - [ ] Multi-user support for backend
-- [ ] More prompts and RAG strategies (serper + jina + LightRAG)
+- [ ] Long-term memory and proactive intent mechanism in dialogue
+- [ ] Non-textual interaction mechanisms such as emoji packs
+- [x] More prompts and RAG strategies (serper + jina + LightRAG)
+- [ ] Practical voiceprint detection mechanism in real scenes
 - [ ] More examples and evaluation utilities
 - [ ] Customized example characters
 - [ ] More interesting interraction and challenging mechanism
