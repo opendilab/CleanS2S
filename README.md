@@ -170,7 +170,7 @@ cd CleanS2S/backend
 pip install -r requirements.txt
 ```
 
-- Install `funasr` for paraformer-zh according to the instructions [here](https://github.com/modelscope/FunASR?tab=readme-ov-file#installation)
+- Install `funasr (1.1.6 recommended)` for paraformer-zh according to the instructions [here](https://github.com/modelscope/FunASR?tab=readme-ov-file#installation)
 - Install `cosyvoice` for CosyVoice-300M according to the instructions [here](https://github.com/FunAudioLLM/CosyVoice?tab=readme-ov-file#install)
 
 #### Downloading models
