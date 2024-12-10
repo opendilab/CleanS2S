@@ -25,8 +25,8 @@ from transformers import AutoModelForCausalLM, AutoTokenizer, pipeline, TextIter
 from funasr import AutoModel
 # TTS
 import torchaudio
-from cosyvoice.utils.file_utils import load_wav
-from cosyvoice.cli.cosyvoice import CosyVoice
+# from cosyvoice.utils.file_utils import load_wav
+# from cosyvoice.cli.cosyvoice import CosyVoice
 
 # Ensure that the necessary NLTK resources are available
 try:
@@ -477,7 +477,13 @@ class SocketVADReceiver:
                             vad_result = self.vad(data)
                             if vad_result is not None:
                                 self.user_input_count += 1
-                                self.queue_out.put({"data": vad_result, "user_input_count": self.user_input_count, "uid": uid})
+                                self.queue_out.put(
+                                    {
+                                        "data": vad_result,
+                                        "user_input_count": self.user_input_count,
+                                        "uid": uid
+                                    }
+                                )
                                 # If VAD is detected and frontend is playing, trigger the user interruption
                                 if self.frontend_is_playing:
                                     self.interruption_event.set()
@@ -783,9 +789,7 @@ class ParaFormerSTTHandler(BaseHandler):
         end_event.record()
         torch.cuda.synchronize()
 
-        logger.info(
-            f"{self.__class__.__name__}:  warmed up! time: {start_event.elapsed_time(end_event) * 1e-3:.3f} s"
-        )
+        logger.info(f"{self.__class__.__name__}:  warmed up! time: {start_event.elapsed_time(end_event) * 1e-3:.3f} s")
 
     def process(self, inputs: Dict[str, Union[np.ndarray, str, int]]) -> Dict[str, Union[str, int, bool]]:
         """
@@ -802,14 +806,18 @@ class ParaFormerSTTHandler(BaseHandler):
 
         global pipeline_start
         pipeline_start = perf_counter()
-        
+
         # user directly send text question
         if isinstance(spoken_prompt, str):
             console.print(f"[yellow]{time.ctime()}\tUSER: {spoken_prompt}")
             if self.save_data:
                 save_fn(
-                    f's2s_data/{uid}_{user_input_count}_input.json',
-                    {"audio": None, "text": spoken_prompt, "audio_input": False, "time": time.ctime()}
+                    f's2s_data/{uid}_{user_input_count}_input.json', {
+                        "audio": None,
+                        "text": spoken_prompt,
+                        "audio_input": False,
+                        "time": time.ctime()
+                    }
                 )
             yield {"data": spoken_prompt, "user_input_count": user_input_count, "uid": uid, "audio_input": False}
         else:
@@ -825,8 +833,12 @@ class ParaFormerSTTHandler(BaseHandler):
             console.print(f"[yellow]{time.ctime()}\tUSER: {pred_text}")
             if self.save_data:
                 save_fn(
-                    f's2s_data/{uid}_{user_input_count}_input.json',
-                    {"audio": spoken_prompt, "text": pred_text, "audio_input": True, "time": time.ctime()}
+                    f's2s_data/{uid}_{user_input_count}_input.json', {
+                        "audio": spoken_prompt,
+                        "text": pred_text,
+                        "audio_input": True,
+                        "time": time.ctime()
+                    }
                 )
 
             yield {"data": pred_text, "user_input_count": user_input_count, "uid": uid, "audio_input": True}
@@ -1079,7 +1091,8 @@ class LanguageModelHandler(BaseHandler):
 
         self.working_event.set()
         logger.info("inference language model...")
-        prompt, user_input_count, uid, audio_input = inputs["data"], inputs["user_input_count"], inputs["uid"], inputs["audio_input"]
+        prompt, user_input_count, uid, audio_input = inputs["data"], inputs["user_input_count"], inputs["uid"], inputs[
+            "audio_input"]
         count = 0
         # If user interruption is triggered, generate a transition sentence and yield it
         if self.interruption_event.is_set():
@@ -1272,7 +1285,8 @@ class LanguageModelAPIHandler(BaseHandler):
 
         self.working_event.set()
         logger.info("inference language model...")
-        prompt, user_input_count, uid, audio_input = inputs["data"], inputs["user_input_count"], inputs["uid"], inputs["audio_input"]
+        prompt, user_input_count, uid, audio_input = inputs["data"], inputs["user_input_count"], inputs["uid"], inputs[
+            "audio_input"]
         count = 0
         # If user interruption is triggered, generate a transition sentence and yield it
         if self.interruption_event.is_set():
@@ -1366,7 +1380,11 @@ class LanguageModelAPIHandler(BaseHandler):
             self.chat.append({"role": "assistant", "content": generated_text})
             response = self.client.chat.completions.create(
                 model=self.model_name,
-                messages=self.chat.to_list() + [{"role": self.user_role, "content": CLEANS2S_SMART_POST_QUESTION_PROMPT}],
+                messages=self.chat.to_list() +
+                [{
+                    "role": self.user_role,
+                    "content": CLEANS2S_SMART_POST_QUESTION_PROMPT
+                }],
                 max_tokens=self.max_new_tokens,
                 temperature=self.temperature,
                 top_p=0.95,
@@ -1596,13 +1614,20 @@ class CosyVoiceTTSHandler(BaseHandler):
                 if self.save_data:
                     readable_time = get_readable_time(time.time())
                     save_fn(
-                        f"s2s_data/{uid}_{inputs['user_input_count']}_output_{readable_time}.json",
-                        {"audio": np.concatenate(chunks, axis=0), "text": inputs['answer_text'], "time": time.ctime()}
+                        f"s2s_data/{uid}_{inputs['user_input_count']}_output_{readable_time}.json", {
+                            "audio": np.concatenate(chunks, axis=0),
+                            "text": inputs['answer_text'],
+                            "time": time.ctime()
+                        }
                     )
                 if i == 0:
                     if pipeline_start is not None:
-                        logger.info(f"[green]{time.ctime()}\tTime to first user audio input: {perf_counter() - pipeline_start:.3f}")
-                        console.print(f"[green]{time.ctime()}\tTime to first user audio input: {perf_counter() - pipeline_start:.3f}")
+                        logger.info(
+                            f"[green]{time.ctime()}\tTime to first user audio input: {perf_counter() - pipeline_start:.3f}"
+                        )
+                        console.print(
+                            f"[green]{time.ctime()}\tTime to first user audio input: {perf_counter() - pipeline_start:.3f}"
+                        )
                     yield {
                         'question_text': inputs['question_text'],
                         'answer_text': inputs['answer_text'],
@@ -1632,6 +1657,8 @@ class CosyVoiceTTSHandler(BaseHandler):
         """
         super().clear_current_state()
         self.ref = random.choice(self.ref_list)
+
+
 
 
 def main(args) -> None:
