@@ -1,17 +1,16 @@
 from threading import Event
 import os
 import sys
-os.environ['HF_ENDPOINT'] = 'https://hf-mirror.com'
-
 
 from dotenv import load_dotenv
 load_dotenv(".dev.env")
-# sys.path.append('..')
+# os.environ['HF_ENDPOINT'] = 'https://hf-mirror.com'
 
 parent_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 sys.path.append(parent_dir)
 
-from s2s_server_pipeline import LanguageModelAPIHandlerWithMemory, LanguageModelAPIHandler
+from s2s_server_pipeline_memory import LanguageModelAPIHandlerWithMemory
+
 
 def main():
     stop_event = Event()
