@@ -25,8 +25,8 @@ from transformers import AutoModelForCausalLM, AutoTokenizer, pipeline, TextIter
 from funasr import AutoModel
 # TTS
 import torchaudio
-# from cosyvoice.utils.file_utils import load_wav
-# from cosyvoice.cli.cosyvoice import CosyVoice
+from cosyvoice.utils.file_utils import load_wav
+from cosyvoice.cli.cosyvoice import CosyVoice
 
 # Ensure that the necessary NLTK resources are available
 try:
@@ -44,13 +44,16 @@ os.environ["TORCHINDUCTOR_CACHE_DIR"] = os.path.join(CURRENT_DIR, "compile_tmp")
 # # mind about this parameter ! should be >= 2 * number of padded prompt sizes for TTS
 # torch._dynamo.config.cache_size_limit = 15
 
-global logger
-logging.basicConfig(
-    level=logging.WARNING,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-)
+# configure logger
 logger = logging.getLogger(__name__)
 logger.setLevel(level=logging.INFO)
+
+console_handler = logging.StreamHandler()
+console_formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+console_handler.setFormatter(console_formatter)
+
+logger.addHandler(console_handler)
+
 logger.info(f'BEGIN LOGGER {__name__}')
 console = Console()
 global pipeline_start
@@ -1657,8 +1660,6 @@ class CosyVoiceTTSHandler(BaseHandler):
         """
         super().clear_current_state()
         self.ref = random.choice(self.ref_list)
-
-
 
 
 def main(args) -> None:
