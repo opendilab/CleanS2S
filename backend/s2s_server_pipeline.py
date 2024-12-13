@@ -25,8 +25,8 @@ from transformers import AutoModelForCausalLM, AutoTokenizer, pipeline, TextIter
 from funasr import AutoModel
 # TTS
 import torchaudio
-from cosyvoice.utils.file_utils import load_wav
-from cosyvoice.cli.cosyvoice import CosyVoice
+# from cosyvoice.utils.file_utils import load_wav
+# from cosyvoice.cli.cosyvoice import CosyVoice
 
 # Ensure that the necessary NLTK resources are available
 try:
@@ -1227,6 +1227,7 @@ class LanguageModelAPIHandler(BaseHandler):
             init_chat_role: Optional[str] = 'system',
             init_chat_prompt: str = "你是一个风趣幽默且聪明的智能体。",
             model_url: Optional[str] = None,  # only use for LM API
+            generate_questions: bool = True,
             **kwargs,  # for compatibility with other LMs
     ) -> None:
         """
@@ -1252,6 +1253,7 @@ class LanguageModelAPIHandler(BaseHandler):
         self.model_url = model_url
         self.interruption_event = interruption_event
         self.max_new_tokens = max_new_tokens
+        self.generate_questions = generate_questions
         if do_sample:
             self.temperature = temperature
         else:
@@ -1381,34 +1383,35 @@ class LanguageModelAPIHandler(BaseHandler):
 
         if not self.cur_conn_end_event.is_set():
             self.chat.append({"role": "assistant", "content": generated_text})
-            response = self.client.chat.completions.create(
-                model=self.model_name,
-                messages=self.chat.to_list() +
-                [{
-                    "role": self.user_role,
-                    "content": CLEANS2S_SMART_POST_QUESTION_PROMPT
-                }],
-                max_tokens=self.max_new_tokens,
-                temperature=self.temperature,
-                top_p=0.95,
-                frequency_penalty=0,
-                presence_penalty=0,
-                stream=False
-            )
-            msg = response.choices[0].message.content
-            matched = re.search(CLEANS2S_SMART_POST_QUESTION_PATTERN, msg)
-            if matched:
-                question1 = matched.group(1)
-                question2 = matched.group(2)
-                question3 = matched.group(3)
-                result = {"q1": question1, "q2": question2, "q3": question3}
-                yield {
-                    'question_text': None,
-                    'answer_text': result,
-                    'end_flag': True,
-                    'user_input_count': user_input_count,
-                    "uid": uid
-                }
+            if self.generate_questions:
+                response = self.client.chat.completions.create(
+                    model=self.model_name,
+                    messages=self.chat.to_list() +
+                    [{
+                        "role": self.user_role,
+                        "content": CLEANS2S_SMART_POST_QUESTION_PROMPT
+                    }],
+                    max_tokens=self.max_new_tokens,
+                    temperature=self.temperature,
+                    top_p=0.95,
+                    frequency_penalty=0,
+                    presence_penalty=0,
+                    stream=False
+                )
+                msg = response.choices[0].message.content
+                matched = re.search(CLEANS2S_SMART_POST_QUESTION_PATTERN, msg)
+                if matched:
+                    question1 = matched.group(1)
+                    question2 = matched.group(2)
+                    question3 = matched.group(3)
+                    result = {"q1": question1, "q2": question2, "q3": question3}
+                    yield {
+                        'question_text': None,
+                        'answer_text': result,
+                        'end_flag': True,
+                        'user_input_count': user_input_count,
+                        "uid": uid
+                    }
 
         self.working_event.clear()
         logger.info("inference LLM over")
