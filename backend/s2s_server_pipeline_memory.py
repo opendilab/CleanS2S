@@ -284,9 +284,9 @@ class MemoryChatHelper:
         if self.mode in [0, 2]:
             his_msg = json.dumps(self.memory.history_list, ensure_ascii=False)
             return_type = self.memory.query('历史对话：' + his_msg + 'user:' + msg, self.judge_sys_prompt)
-            judge_type = ['敷衍', '延迟回复', '转移话题', '直白拒绝', '不回复', '正常回复']
+            judge_type = ['敷衍', '延迟回复', '转移话题', '直白拒绝', '不回复', '正常回复', 'emoji回复']
 
-            if return_type in ["1", "2", "3", "4", "5", "6"]:
+            if return_type in ["1", "2", "3", "4", "5", "6", "7"]:
                 return_type = int(return_type)
             elif return_type in judge_type:
                 return_type = judge_type.index(return_type) + 1
