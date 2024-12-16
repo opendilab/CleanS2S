@@ -78,6 +78,8 @@ class Memory:
                 self.embedding_model = FlagAutoModel.from_finetuned('BAAI/bge-base-zh-v1.5',
                                             query_instruction_for_retrieval="Represent this sentence for searching relevant passages:",
                                             use_fp16=True)
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.embedding_model = self.embedding_model.to(device)
 
     def query(self, umsg, sysp, temperature=0.6, isjson=False):
         """
@@ -173,18 +175,14 @@ class Memory:
         return scorelist
 
     def _cal_sim(self, query_sentence, sentences):
-        single_query_flag = len(query_sentence) == 1
         if self.embedding_model_name == 'bert':
             similarities = self.embedding_model.similarity(query_sentence, sentences)
         else:
             embeddings = self.embedding_model.encode([query_sentence] + sentences)
-            if single_query_flag:
-                embeddings_query = embeddings[0].reshape(1, -1)
-            else:
-                embeddings_query = embeddings[0]
+            embeddings_query = embeddings[0].reshape(1, -1)
             embeddings_sentences = embeddings[1:]
             similarities = cosine_similarity(embeddings_query, embeddings_sentences)
-        return similarities
+        return similarities[0]
 
     def _fact_func(self, msg) -> None:
         old_fact = self.facts[:-self.history_len // 2]
@@ -303,7 +301,7 @@ class MemoryChatHelper:
             if return_type in [1, 3, 4]:
                 sys_prompt += f'# 指导思想：此次回复的指导思想为：{judge_type[return_type-1]}'
             elif return_type == 7:
-                res = self.memory.get_topk_emoji(q)
+                res = self.memory.get_topk_emoji(msg)
                 sys_prompt += f'# 指导思想：此次回复的指导思想为:{judge_type[re_type-1]},可用emoji有{res}'
             else:
                 sys_prompt += f'# 指导思想：此次回复的指导思想为：正常回复'
