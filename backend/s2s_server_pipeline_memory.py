@@ -29,7 +29,7 @@ logger.addHandler(file_handler)
 logger.propagate = False
 
 
-class Memory:
+class Proactivity:
     # Memory saves the facts，elements and history messages in conversation，history_len is used to decide the length of history messages. When the length of history messages is longer than history_len,
     # the former messages will be processed and saved by summary. After every turn of conversation, self.facts and self.elements will be updated.
 
@@ -257,14 +257,14 @@ class Memory:
         self.history_list = ['' for _ in range(self.history_len)]
 
 
-class MemoryChatHelper:
+class ProactivityChatHelper:
     def __init__(self, model_url, model_name, character='anlingrong.txt', history_len=5, mode=0) -> None:
-        self.memory = Memory(history_len, model_url, model_name)
-        self.character_base_path = os.path.join(self.memory.base_path, 'character')
+        self.agent = Proactivity(history_len, model_url, model_name)
+        self.character_base_path = os.path.join(self.agent.base_path, 'character')
         self.mode = mode
         with open(os.path.join(self.character_base_path, character), "r", encoding='utf-8') as f:
             self.c_sys_prompt = f.read()
-        with open(os.path.join(self.memory.memory_base_path, "./nci.txt"), "r", encoding='utf-8') as f:
+        with open(os.path.join(self.agent.memory_base_path, "./nci.txt"), "r", encoding='utf-8') as f:
             self.judge_sys_prompt = f.read()
 
     def generate_sys_prompt(self, msg):
@@ -273,15 +273,15 @@ class MemoryChatHelper:
         
         sys_prompt = self.c_sys_prompt
         if self.mode in [0, 1]:
-            sys_prompt += self.memory.get()
+            sys_prompt += self.agent.get()
             # flag means whether the msg is rejected. True means not rejected
             # Not activated in this version
-            # flag, reject_result = self.memory.process(msg)
+            # flag, reject_result = self.agent.process(msg)
             # sys_prompt += reject_result
 
-        if self.mode in [0, 2]:
-            his_msg = json.dumps(self.memory.history_list, ensure_ascii=False)
-            return_type = self.memory.query('历史对话：' + his_msg + 'user:' + msg, self.judge_sys_prompt)
+        if self.mode in [0, 2,3]:
+            his_msg = json.dumps(self.agent.history_list, ensure_ascii=False)
+            return_type = self.agent.query('历史对话：' + his_msg + 'user:' + msg, self.judge_sys_prompt)
             judge_type = ['敷衍', '延迟回复', '转移话题', '直白拒绝', '不回复', '正常回复', 'emoji回复']
 
             if return_type in ["1", "2", "3", "4", "5", "6", "7"]:
@@ -298,28 +298,28 @@ class MemoryChatHelper:
             #     res = ''
             # else: # 其他情况
 
-            if return_type in [1, 3, 4]:
+            if return_type in [1, 3, 4] and mode != 3:
                 sys_prompt += f'# 指导思想：此次回复的指导思想为：{judge_type[return_type-1]}'
-            elif return_type == 7:
-                res = self.memory.get_topk_emoji(msg)
-                sys_prompt += f'# 指导思想：此次回复的指导思想为:{judge_type[re_type-1]},可用emoji有{res}'
+            elif return_type == 7 or mode == 3:
+                res = self.agent.get_topk_emoji(msg)
+                sys_prompt += f'# 指导思想：此次回复的指导思想为: emoji回复,可用emoji有{res}'
             else:
                 sys_prompt += f'# 指导思想：此次回复的指导思想为：正常回复'
 
         return sys_prompt
 
     def add(self, msg):
-        self.memory.add(msg)
+        self.agent.add(msg)
 
     def clear(self, ):
-        self.memory.clear()
+        self.agent.clear()
 
 
 class LanguageModelAPIHandlerWithMemory(LanguageModelAPIHandler):
 
     def __init__(self, *args, character='anlingrong.txt', history_len=5, mode=0, **kwargs):
         super().__init__(*args, **kwargs)
-        self.memory_chat_helper = MemoryChatHelper(self.model_url, self.model_name, character, history_len, mode)
+        self.proactivity_chat_helper = ProactivityChatHelper(self.model_url, self.model_name, character, history_len, mode)
 
     def process(self, inputs: Dict[str, Union[str, int, bool]]) -> Dict[str, Union[str, int, bool]]:
         """
@@ -342,7 +342,7 @@ class LanguageModelAPIHandlerWithMemory(LanguageModelAPIHandler):
                 total_answer += ele['answer_text']
             yield ele
         logger.info(f"Model output: {total_answer}")
-        self.memory_chat_helper.add(json.dumps({"user": inputs['data'], "AI": total_answer}, ensure_ascii=False))
+        self.proactivity_chat_helper.add(json.dumps({"user": inputs['data'], "AI": total_answer}, ensure_ascii=False))
 
     def _before_process(self, prompt: str, count: int) -> List[Dict[str, str]]:
         """
@@ -354,7 +354,7 @@ class LanguageModelAPIHandlerWithMemory(LanguageModelAPIHandler):
             - messages (List[Dict[str, str]): The chat messages.
         """
 
-        sys_p = self.memory_chat_helper.generate_sys_prompt(prompt)
+        sys_p = self.proactivity_chat_helper.generate_sys_prompt(prompt)
         logger.info(f"System prompt generated: {sys_p}")
         self.chat.init_chat({"role": 'system', "content": sys_p})
         self.chat.append({"role": self.user_role, "content": prompt})
@@ -362,5 +362,5 @@ class LanguageModelAPIHandlerWithMemory(LanguageModelAPIHandler):
 
     def clear_current_state(self):
         super().clear_current_state()
-        self.memory_chat_helper.clear()
+        self.proactivity_chat_helper.clear()
         logger.info("Memory cleared.")
