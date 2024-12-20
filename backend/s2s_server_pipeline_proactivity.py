@@ -1,6 +1,7 @@
 from typing import Dict, List, Optional, Union, Any
 import json
 import os
+import re
 import logging
 from openai import OpenAI
 from s2s_server_pipeline import LanguageModelAPIHandler
@@ -9,7 +10,7 @@ from sklearn.metrics.pairwise import cosine_similarity
 from promcse import PromCSE
 from FlagEmbedding import FlagAutoModel
 from transformers import AutoModel
-
+from datasets import load_dataset
 # Configure logger
 
 logger = logging.getLogger(__name__)
@@ -66,9 +67,8 @@ class Proactivity:
             self.reject_sys_prompt = f.read()
         with open(os.path.join(self.memory_base_path, "panding.txt"), "r", encoding='utf-8') as f:
             self.panding_sys_prompt = f.read()
-        self.emoji_dataset_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'datasets')
-        with open(os.path.join(self.emoji_dataset_path, "emoji_dataset.json"), 'r', encoding='utf-8') as json_file:
-            self.emoji_dataset = json.load(json_file)
+        ds = load_dataset("AltmanD/emoji_info")
+        self.emoji_dataset = self._csv2json(ds)
         if self.embedding_model_name == 'bert':
             self.embedding_model = PromCSE("hellonlp/promcse-bert-base-zh-v1.1", "cls", 10)
         else:
@@ -81,7 +81,7 @@ class Proactivity:
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.embedding_model = self.embedding_model.to(device)
 
-    def query(self, umsg, sysp, temperature=0.6, isjson=False):
+    def call_llm(self, umsg, sysp, temperature=0.6, isjson=False):
         """
         Arguments:
             - umsg(string): user message
@@ -124,14 +124,14 @@ class Proactivity:
 
         return res
 
-    def add(self, new_msg) -> None:  # add new_msg to self.facts and self.summary
+    def add_2_memory(self, new_msg) -> None:  # add new_msg to self.facts and self.summary
         out_msg = self.history_list.pop(0)
         self.history_list.append(new_msg)
         self._fact_func(new_msg)
         if out_msg:
             self._summary_func(out_msg)
 
-    def get(self) -> json:
+    def get_from_memory(self) -> json:
         fact = json.dumps(self.facts[-self.history_len // 2:], ensure_ascii=False)
         summary = json.dumps(self.summary, ensure_ascii=False)
         hist = json.dumps(self.history_list, ensure_ascii=False)
@@ -187,12 +187,12 @@ class Proactivity:
     def _fact_func(self, msg) -> None:
         old_fact = self.facts[:-self.history_len // 2]
         self.facts.pop(0)
-        self.facts.append(self.query("对话：" + msg + "旧的关键事实：" + str(old_fact), self.fact_sys_prompt))
+        self.facts.append(self.call_llm("对话：" + msg + "旧的关键事实：" + str(old_fact), self.fact_sys_prompt))
         logger.info(f"Memory fact updated: {self.facts}")
 
     def _summary_func(self, msg) -> None:
         old_summary = self.summary
-        self.summary = self.query("对话：" + msg + "旧的总结：" + old_summary, self.summary_sys_prompt)
+        self.summary = self.call_llm("对话：" + msg + "旧的总结：" + old_summary, self.summary_sys_prompt)
         logger.info(f"Memory summary updated: {self.summary}")
 
     def _update(
@@ -201,12 +201,12 @@ class Proactivity:
         for update_element in update_elements_list:
             if self.elements[update_element] == '':  # not initialized yet
                 umsg = f"对话：{msg}, 要素：{update_element}"
-                initialization = self.query(umsg, self.initialize_sys_prompt)
+                initialization = self.call_llm(umsg, self.initialize_sys_prompt)
                 self.elements[update_element] = initialization
                 logger.info(f"Memory element {update_element} initialized: {initialization}")
             else:
                 umsg = f"对话：{msg}, 要素：{update_element}, 已有要素内容：{self.elements[update_element]}"
-                updated = self.query(umsg, self.update_sys_prompt)
+                updated = self.call_llm(umsg, self.update_sys_prompt)
                 self.elements[update_element] += updated
                 logger.info(f"Memory element {update_element} updated: {updated}")
 
@@ -215,7 +215,7 @@ class Proactivity:
     ) -> bool:  #Judge whether there is a conflict between QA and element. Refer only to the content in self.elements
 
         umsg = f'对话：{msg}, 要素：{element}, 要素内容：{self.elements[element]}'
-        reject_flag = self.query(umsg, self.conflict_sys_prompt)
+        reject_flag = self.call_llm(umsg, self.conflict_sys_prompt)
         if 'True' in reject_flag:
             return True
         else:
@@ -228,7 +228,7 @@ class Proactivity:
                 conflict_flag = self.inside_conflict(msg, element)
                 if conflict_flag:
                     umsg = f'对话：{msg}, 要素：{element}, 要素内容：{self.elements[element]}'
-                    reject = self.query(umsg, self.reject_sys_prompt)
+                    reject = self.call_llm(umsg, self.reject_sys_prompt)
                     reject_list.append({'要素': element, '原因': reject})
         if len(reject_list) > 0:
             return True, reject_list
@@ -236,11 +236,30 @@ class Proactivity:
 
     def _panding(self, msg) -> list:  # decide which elements to be considered
         umsg = f"用户输入：{msg},关键事实种类列表：{self.elements.keys()}"
-        elements_list = self.query(umsg, self.panding_sys_prompt, isjson=True)
+        elements_list = self.call_llm(umsg, self.panding_sys_prompt, isjson=True)
         if isinstance(elements_list, dict):
             first_key = list(elements_list.keys())[0]
             elements_list = elements_list[first_key]
         return elements_list
+
+    
+    def _csv2json(self, dataset) -> dict:  # decide which elements to be considered
+        res = {}
+        for x in dataset['test']:
+            tlist = list()
+            xlist = list(x.items())
+            for i, (k, v) in enumerate(xlist):
+                if k != 'emoji':
+                    if v != '-':
+                        match = re.match(r"Q\d{1,2}(?:0[1-9]|100)?rank", k)
+                        if match:
+                            tlist.append(int(v))
+                        else:
+                            tlist.append(v)
+                    if v == '-' or i == len(xlist)-1:
+                        res[x['emoji']] = tlist
+                        break
+        return res
 
     def process(self, msg) -> {bool, str}:  # finally process msg, reject or update
         reject_flag, reject_result = self._reject(msg)
@@ -273,7 +292,7 @@ class ProactivityChatHelper:
         
         sys_prompt = self.c_sys_prompt
         if self.mode in [0, 1]:
-            sys_prompt += self.agent.get()
+            sys_prompt += self.agent.get_from_memory()
             # flag means whether the msg is rejected. True means not rejected
             # Not activated in this version
             # flag, reject_result = self.agent.process(msg)
@@ -281,7 +300,7 @@ class ProactivityChatHelper:
 
         if self.mode in [0, 2,3]:
             his_msg = json.dumps(self.agent.history_list, ensure_ascii=False)
-            return_type = self.agent.query('历史对话：' + his_msg + 'user:' + msg, self.judge_sys_prompt)
+            return_type = self.agent.call_llm('历史对话：' + his_msg + 'user:' + msg, self.judge_sys_prompt)
             judge_type = ['敷衍', '延迟回复', '转移话题', '直白拒绝', '不回复', '正常回复', 'emoji回复']
 
             if return_type in ["1", "2", "3", "4", "5", "6", "7"]:
@@ -308,8 +327,8 @@ class ProactivityChatHelper:
 
         return sys_prompt
 
-    def add(self, msg):
-        self.agent.add(msg)
+    def add_2_agent(self, msg):
+        self.agent.add_2_memory(msg)
 
     def clear(self, ):
         self.agent.clear()
@@ -342,7 +361,7 @@ class LanguageModelAPIHandlerWithMemory(LanguageModelAPIHandler):
                 total_answer += ele['answer_text']
             yield ele
         logger.info(f"Model output: {total_answer}")
-        self.proactivity_chat_helper.add(json.dumps({"user": inputs['data'], "AI": total_answer}, ensure_ascii=False))
+        self.proactivity_chat_helper.add_2_agent(json.dumps({"user": inputs['data'], "AI": total_answer}, ensure_ascii=False))
 
     def _before_process(self, prompt: str, count: int) -> List[Dict[str, str]]:
         """
