@@ -25,8 +25,8 @@ from transformers import AutoModelForCausalLM, AutoTokenizer, pipeline, TextIter
 from funasr import AutoModel
 # TTS
 import torchaudio
-# from cosyvoice.utils.file_utils import load_wav
-# from cosyvoice.cli.cosyvoice import CosyVoice
+from cosyvoice.utils.file_utils import load_wav
+from cosyvoice.cli.cosyvoice import CosyVoice
 
 # Ensure that the necessary NLTK resources are available
 try:
@@ -1227,7 +1227,7 @@ class LanguageModelAPIHandler(BaseHandler):
             init_chat_role: Optional[str] = 'system',
             init_chat_prompt: str = "你是一个风趣幽默且聪明的智能体。",
             model_url: Optional[str] = None,  # only use for LM API
-            generate_questions: bool = True,
+            generate_questions: bool = True,  # control flag for generating questions after the reply
             **kwargs,  # for compatibility with other LMs
     ) -> None:
         """

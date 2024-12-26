@@ -38,8 +38,9 @@ def main():
         'audio_input': False,
     }
     generator = lm.process(inputs)
-    print([t["answer_text"] for t in generator])
-    outputs = "".join([t["answer_text"] for t in generator])
+    content = [t["answer_text"] for t in generator]
+    print(content)
+    outputs = "".join(content)
     print(f'end: {outputs}')
 
 

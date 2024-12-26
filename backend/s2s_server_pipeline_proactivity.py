@@ -11,6 +11,7 @@ from promcse import PromCSE
 from FlagEmbedding import FlagAutoModel
 from transformers import AutoModel
 from datasets import load_dataset
+from enum import Enum
 # Configure logger
 
 logger = logging.getLogger(__name__)
@@ -42,7 +43,7 @@ class Proactivity:
             - model_name(str): the name of model
         """
         self.history_len = history_len  # The length of history messages to save
-        self.facts = ['' for _ in range(self.history_len)]
+        self.facts = ['' for _ in range(self.history_len)] # list but use as a deque(slice option needed)
         self.summary = []
         self.history_list = ['' for _ in range(self.history_len)]
         self.history_json = "[]"
@@ -71,23 +72,27 @@ class Proactivity:
         self.emoji_dataset = self._csv2json(ds)
         if self.embedding_model_name == 'bert':
             self.embedding_model = PromCSE("hellonlp/promcse-bert-base-zh-v1.1", "cls", 10)
-        else:
-            if self.embedding_model_name == 'jina':
-                self.embedding_model = AutoModel.from_pretrained("jinaai/jina-embeddings-v3", trust_remote_code=True)
-            elif self.embedding_model_name == 'beg':
-                self.embedding_model = FlagAutoModel.from_finetuned('BAAI/bge-base-zh-v1.5',
+        elif self.embedding_model_name == 'jina':
+            self.embedding_model = AutoModel.from_pretrained("jinaai/jina-embeddings-v3", trust_remote_code=True)
+        elif self.embedding_model_name == 'beg':
+            self.embedding_model = FlagAutoModel.from_finetuned('BAAI/bge-base-zh-v1.5',
                                             query_instruction_for_retrieval="Represent this sentence for searching relevant passages:",
                                             use_fp16=True)
+        else:
+            raise KeyError(f'Incorrect arg: {self.embedding_model_name}')
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.embedding_model = self.embedding_model.to(device)
 
-    def call_llm(self, umsg, sysp, temperature=0.6, isjson=False):
+    def call_llm(self, messages, system_prompt, temperature=0.6, isjson=False):
         """
+        Call the language model API to generate text.
         Arguments:
-            - umsg(string): user message
-            - sysp(string): system message
+            - messages(string): user message
+            - system_prompt(string): system prompt
             - temperature(float): control the temperature in generation
-            - isjson(bool): control the generation whether in json format
+            - isjson(bool): control flag of json format generation
+        Returns:
+            - output (str): The generated text (or json format) output.
         """
         msg = [
             {
@@ -276,8 +281,15 @@ class Proactivity:
         self.history_list = ['' for _ in range(self.history_len)]
 
 
+class ChatMode(Enum):
+    REGULAR_MODE = 1
+    MEMORY_ONLY = 2
+    NONTEXT_INTERACTION_ONLY = 3
+    EMOJI_ONLY = 4
+
+
 class ProactivityChatHelper:
-    def __init__(self, model_url, model_name, character='anlingrong.txt', history_len=5, mode=0) -> None:
+    def __init__(self, model_url, model_name, character='anlingrong.txt', history_len=5, mode=ChatMode.REGULAR_MODE) -> None:
         self.agent = Proactivity(history_len, model_url, model_name)
         self.character_base_path = os.path.join(self.agent.base_path, 'character')
         self.mode = mode
@@ -291,23 +303,24 @@ class ProactivityChatHelper:
         # ['perfunctory response', 'delayed reply', 'change the subject', 'direct refusal', 'no response', 'normal reply'].
         
         sys_prompt = self.c_sys_prompt
-        if self.mode in [0, 1]:
+        if self.mode in [ChatMode.REGULAR_MODE, ChatMode.MEMORY_ONLY]:
             sys_prompt += self.agent.get_from_memory()
             # flag means whether the msg is rejected. True means not rejected
             # Not activated in this version
             # flag, reject_result = self.agent.process(msg)
             # sys_prompt += reject_result
 
-        if self.mode in [0, 2,3]:
+        if self.mode in [ChatMode.REGULAR_MODE, ChatMode.NONTEXT_INTERACTION_ONLY, ChatMode.EMOJI_ONLY]:
             his_msg = json.dumps(self.agent.history_list, ensure_ascii=False)
             return_type = self.agent.call_llm('历史对话：' + his_msg + 'user:' + msg, self.judge_sys_prompt)
             judge_type = ['敷衍', '延迟回复', '转移话题', '直白拒绝', '不回复', '正常回复', 'emoji回复']
 
-            if return_type in ["1", "2", "3", "4", "5", "6", "7"]:
+            # ensure llm responses have correctly processed
+            if return_type in ["1", "2", "3", "4", "5", "6", "7"]: # for correct return,1-7 represent type in 'judge_type'
                 return_type = int(return_type)
-            elif return_type in judge_type:
+            elif return_type in judge_type: # in case llm replies in Chinese
                 return_type = judge_type.index(return_type) + 1
-            else:
+            else: # other cases
                 return_type = 6
 
             # these 2 conditions are not implemented for speed test
@@ -317,11 +330,11 @@ class ProactivityChatHelper:
             #     res = ''
             # else: # 其他情况
 
-            if return_type in [1, 3, 4] and mode != 3:
+            if return_type in [1, 3, 4] and self.mode != ChatMode.EMOJI_ONLY:
                 sys_prompt += f'# 指导思想：此次回复的指导思想为：{judge_type[return_type-1]}'
-            elif return_type == 7 or mode == 3:
+            elif return_type == 7 or self.mode == ChatMode.EMOJI_ONLY:
                 res = self.agent.get_topk_emoji(msg)
-                sys_prompt += f'# 指导思想：此次回复的指导思想为: emoji回复,可用emoji有{res}'
+                sys_prompt += f'# 指导思想：此次回复的指导思想为: emoji回复，可用emoji有{res}'
             else:
                 sys_prompt += f'# 指导思想：此次回复的指导思想为：正常回复'
 
@@ -330,7 +343,7 @@ class ProactivityChatHelper:
     def add_2_agent(self, msg):
         self.agent.add_2_memory(msg)
 
-    def clear(self, ):
+    def clear(self):
         self.agent.clear()
 
 
