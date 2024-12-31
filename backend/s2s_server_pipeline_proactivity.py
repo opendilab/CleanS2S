@@ -333,6 +333,11 @@ class ProactivityChatHelper:
 
             if return_type in [1, 3, 4] and self.mode != ChatMode.EMOJI_ONLY:
                 sys_prompt += f'# 指导思想：此次回复的指导思想为：{judge_type[return_type-1]}'
+                print(f'AI 内心：{judge_type[return_type-1]}')
+            elif return_type == 2:
+                print('AI 选择延迟回复你')
+            elif return_type == 5:
+                print('AI 不想回复你')
             elif return_type == 7 or self.mode == ChatMode.EMOJI_ONLY:
                 res = self.agent.get_topk_emoji(msg)
                 sys_prompt += f'# 指导思想：此次回复的指导思想为: emoji回复，可用emoji有{res}'

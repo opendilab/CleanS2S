@@ -24,7 +24,7 @@ def main():
         cur_conn_end_event,
         0,
         0,  # placeholder
-        character='zhenzhen.txt',
+        character='zhangwei.txt',
         mode=ChatMode.REGULAR_MODE,
         interruption_event=interruption_event,
         model_name=model_name,
