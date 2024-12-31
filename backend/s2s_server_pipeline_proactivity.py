@@ -53,7 +53,7 @@ class Proactivity:
         self.model_name = model_name
         self.embedding_model_name = embedding_model_name
         self.base_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'prompts')
-        self.memory_base_path = os.path.join(self.base_path, 'memory')
+        self.memory_base_path = os.path.join(self.base_path, 'proactivity')
         with open(os.path.join(self.memory_base_path, 'fact.txt'), "r", encoding='utf-8') as f:
             self.fact_sys_prompt = f.read()
         with open(os.path.join(self.memory_base_path, 'summary.txt'), "r", encoding='utf-8') as f:
@@ -83,7 +83,7 @@ class Proactivity:
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.embedding_model = self.embedding_model.to(device)
 
-    def call_llm(self, messages, system_prompt, temperature=0.6, isjson=False):
+    def call_llm(self, user_messages, system_prompt, temperature=0.6, isjson=False):
         """
         Call the language model API to generate text.
         Arguments:
@@ -97,11 +97,11 @@ class Proactivity:
         msg = [
             {
                 "role": "system",
-                "content": sysp
+                "content": system_prompt
             },
             {
                 "role": "user",
-                "content": umsg
+                "content": user_messages
             },
         ]
 
@@ -196,7 +196,7 @@ class Proactivity:
         logger.info(f"Memory fact updated: {self.facts}")
 
     def _summary_func(self, msg) -> None:
-        old_summary = self.summary
+        old_summary = str(self.summary)
         self.summary = self.call_llm("对话：" + msg + "旧的总结：" + old_summary, self.summary_sys_prompt)
         logger.info(f"Memory summary updated: {self.summary}")
 
@@ -286,6 +286,7 @@ class ChatMode(Enum):
     MEMORY_ONLY = 2
     NONTEXT_INTERACTION_ONLY = 3
     EMOJI_ONLY = 4
+    VIRTUALCHARACTER_ONLY = 5
 
 
 class ProactivityChatHelper:
@@ -337,7 +338,9 @@ class ProactivityChatHelper:
                 sys_prompt += f'# 指导思想：此次回复的指导思想为: emoji回复，可用emoji有{res}'
             else:
                 sys_prompt += f'# 指导思想：此次回复的指导思想为：正常回复'
-
+        print('===========================')
+        print(sys_prompt)
+        print('===========================')
         return sys_prompt
 
     def add_2_agent(self, msg):
@@ -347,9 +350,9 @@ class ProactivityChatHelper:
         self.agent.clear()
 
 
-class LanguageModelAPIHandlerWithMemory(LanguageModelAPIHandler):
+class LanguageModelAPIHandlerProactivity(LanguageModelAPIHandler):
 
-    def __init__(self, *args, character='anlingrong.txt', history_len=5, mode=0, **kwargs):
+    def __init__(self, *args, character='anlingrong.txt', history_len=5, mode=ChatMode.REGULAR_MODE, **kwargs):
         super().__init__(*args, **kwargs)
         self.proactivity_chat_helper = ProactivityChatHelper(self.model_url, self.model_name, character, history_len, mode)
 
