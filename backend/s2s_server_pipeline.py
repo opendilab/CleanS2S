@@ -1246,6 +1246,7 @@ class LanguageModelAPIHandler(BaseHandler):
             - init_chat_prompt (str): The initial chat message.
             - model_url (Optional[str]): The URL of the model to use. Only used for the LM API \
                 (e.g. https://api.openai.com).
+            - generate_questions(Optional[bool]): control flag for generating questions after the reply
             - kwargs: Additional keyword arguments for compatibility with other language models, it is not used.
         """
         super().__init__(stop_event, cur_conn_end_event, queue_in, queue_out)

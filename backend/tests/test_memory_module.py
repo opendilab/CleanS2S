@@ -2,10 +2,6 @@ from threading import Event
 import os
 import sys
 
-from dotenv import load_dotenv
-load_dotenv(".dev.env")
-os.environ['HF_ENDPOINT'] = 'https://hf-mirror.com'
-
 parent_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 sys.path.append(parent_dir)
 

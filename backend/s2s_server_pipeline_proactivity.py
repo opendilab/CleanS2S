@@ -110,24 +110,30 @@ class Proactivity:
             },
         ]
 
-        response = self.client.chat.completions.create(
-            model=self.model_name,
-            messages=msg,
-            max_tokens=4096,
-            temperature=temperature,
-            stream=False,
-            frequency_penalty=0,
-            presence_penalty=0,
-            top_p=0.95,
-            logprobs=False,
-            response_format={"type": "json_object"} if isjson else None
-        )
+        try:
+            response = self.client.chat.completions.create(
+                model=self.model_name,
+                messages=msg,
+                max_tokens=4096,
+                temperature=temperature,
+                stream=False,
+                frequency_penalty=0,
+                presence_penalty=0,
+                top_p=0.95,
+                logprobs=False,
+                response_format={"type": "json_object"} if isjson else None
+            )
+            logging.warning("API call completed successfully.")
+        except Exception as e:
+            logging.warning(f"API call failed: {e}")
+            raise
         t = response.choices[0].message.content
 
         if isjson:
             try:
                 res = json.loads(t)
-            except json.JSONDecodeError:
+            except json.JSONDecodeError as e:
+                logging.warning(f"Failed to parse JSON response: {e}")
                 res = t
         else:
             res = t
