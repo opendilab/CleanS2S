@@ -1,5 +1,6 @@
 from typing import Dict, List, Optional, Union, Any
 import json
+import time
 import os
 import re
 import logging
@@ -140,17 +141,17 @@ class Proactivity:
 
         return res
 
-    def add_2_memory(self, interaction) -> None:
+    def add_2_memory(self, new_msg) -> None:
         """add interaction to self.facts and self.summary
 
         Args:
             interaction (list of str): user input and AI response
         """
-        out_msg = self.history_list.pop(0)
-        self.history_list.append(interaction)
+        out_msg = [self.history_list.pop(0), self.history_list.pop(0)]
+        self._fact_func(json.dumps(interaction, ensure_ascii=False))
         self._fact_func(interaction)
-        if out_msg:
-            self._summary_func(interaction)
+        if out_msg[0] != '' and out_msg[1] != '':
+            self._summary_func(json.dumps(out_msg, ensure_ascii=False))
 
     def get_from_memory(self) -> json:
         """get the self.fact, self.summary, self.history_list, self.elements in json format
@@ -182,7 +183,7 @@ class Proactivity:
         res = []
         keylist = list(self.emoji_dataset.keys())
         for k in top_k_indexes:
-            res.append(keylist[k])
+            res.append(chr(keylist[k]))
         return res
 
     def _scores_match_sentences(self, query_sentence):
@@ -425,8 +426,8 @@ class ProactivityChatHelper:
 
         if self.mode in [ChatMode.REGULAR_MODE, ChatMode.NONTEXT_INTERACTION_ONLY, ChatMode.EMOJI_ONLY]:
             his_msg = json.dumps(self.agent.history_list, ensure_ascii=False)
-            return_type = self.agent.call_llm('历史对话：' + his_msg + 'user:' + user_msg, self.judge_sys_prompt)
-            judge_type = ['敷衍', '延迟回复', '转移话题', '直白拒绝', '不回复', '正常回复', 'emoji回复']
+            return_type = self.agent.call_llm(msg, sys_prompt + self.judge_sys_prompt)
+            judge_type = ['敷衍', '延迟回复', '转移话题', '直白拒绝', '不回复', 'emoji回复', '借钱给他', '正常回复']
 
             # ensure llm responses have correctly processed
             if return_type in ["1", "2", "3", "4", "5", "6",
@@ -434,8 +435,8 @@ class ProactivityChatHelper:
                 return_type = int(return_type)
             elif return_type in judge_type:  # in case llm replies in Chinese
                 return_type = judge_type.index(return_type) + 1
-            else:  # other cases
-                return_type = 6
+            else: # other cases
+                return_type = 8
 
             # these 2 conditions are not implemented for speed test
             # if re_tyep == 2: # 延迟回复
@@ -448,21 +449,29 @@ class ProactivityChatHelper:
                 sys_prompt += f'# 指导思想：此次回复的指导思想为：{judge_type[return_type-1]}'
                 print(f'AI 内心：{judge_type[return_type-1]}')
             elif return_type == 2:
-                print('AI 选择延迟回复你')
+                print('AI 选择晾你 6 秒')
+                time.sleep(6)
             elif return_type == 5:
-                print('AI 不想回复你')
-            elif return_type == 7 or self.mode == ChatMode.EMOJI_ONLY:
-                res = self.agent.get_topk_emoji(user_msg)
+                print('AI 不想回复你，并把你拉黑了')
+                exit()
+            elif return_type == 6 or self.mode == ChatMode.EMOJI_ONLY:
+                res = self.agent.get_topk_emoji(msg)
                 sys_prompt += f'# 指导思想：此次回复的指导思想为: emoji回复，可用emoji有{res}'
+                print(f'AI 给你发 {res}')
+                time.sleep(2)
+            elif return_type == 7:
+                print('AI 把钱借你了')
+                time.sleep(3)
+                sys_prompt += f'# 指导思想：此次回复的指导思想为：把钱借给你'
             else:
                 sys_prompt += f'# 指导思想：此次回复的指导思想为：正常回复'
-        print('===========================')
-        print(sys_prompt)
-        print('===========================')
         return sys_prompt
 
-    def add_2_agent(self, interaction):
-        self.agent.add_2_memory(interaction)
+    def get_history_chat(self):
+        return self.agent.history_list
+
+    def add_2_agent(self, msg):
+        self.agent.add_2_memory(msg)
 
     def clear(self):
         self.agent.clear()
@@ -497,12 +506,9 @@ class LanguageModelAPIHandlerProactivity(LanguageModelAPIHandler):
                 total_answer += ele['answer_text']
             yield ele
         logger.info(f"Model output: {total_answer}")
-        self.proactivity_chat_helper.add_2_agent(
-            json.dumps({
-                "user": inputs['data'],
-                "AI": total_answer
-            }, ensure_ascii=False)
-        )
+        # self.proactivity_chat_helper.add_2_agent(json.dumps({"user": inputs['data'], "AI": total_answer}, ensure_ascii=False))
+        self.proactivity_chat_helper.add_2_agent([{"role": 'user', "content": inputs['data']}, {"role": 'assistant', "content": total_answer}])
+
 
     def _before_process(self, prompt: str, count: int) -> List[Dict[str, str]]:
         """
@@ -518,6 +524,9 @@ class LanguageModelAPIHandlerProactivity(LanguageModelAPIHandler):
         logger.info(f"System prompt generated: {sys_p}")
         self.chat.init_chat({"role": 'system', "content": sys_p})
         self.chat.append({"role": self.user_role, "content": prompt})
+        # for chat in self.proactivity_chat_helper.get_history_chat():
+        #     if chat != '':
+        #         self.chat.append(chat)
         return self.chat.to_list()
 
     def clear_current_state(self):

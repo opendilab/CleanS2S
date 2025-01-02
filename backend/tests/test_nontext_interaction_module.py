@@ -14,7 +14,6 @@ def main():
     cur_conn_end_event = Event()
     model_name = "deepseek-chat"
     model_url = "https://api.deepseek.com"
-    embedding_model_name = os.getenv("EMBEDDING_MODEL_PATH")
 
     lm = LanguageModelAPIHandlerProactivity(
         stop_event,

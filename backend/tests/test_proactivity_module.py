@@ -30,7 +30,7 @@ def main():
     )
     user_input = ''
     while True:
-        user_input = input('输入 exit 退出')
+        user_input = input('输入 exit 退出\n')
         if user_input == 'exit':
             break
         inputs = {
