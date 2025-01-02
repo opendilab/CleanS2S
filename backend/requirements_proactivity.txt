@@ -1,0 +1,5 @@
+scikit-learn
+promcse
+transformers
+datasets
+FlagEmbedding
