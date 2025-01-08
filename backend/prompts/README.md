@@ -4,7 +4,13 @@
 
 ## character
 
-目前设定有《甄嬛传》中的安陵容。
+目前人物设定有:
+
+1. 《甄嬛传》中的 安陵容 -> anlingrong.txt
+
+2. 《爱情公寓中》中的 张伟 -> zhangwei.txt
+
+3. 虚拟人物 真真 （引用自[“AI 特离谱” 团队](https://waytoagi.feishu.cn/wiki/SY7uwWPiwiK4yXkDasfcky8zn3e)）-> zhenzhen.txt 
 
 ## proactivity
 
