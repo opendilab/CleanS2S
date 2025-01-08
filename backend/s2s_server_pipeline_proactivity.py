@@ -35,7 +35,7 @@ class Proactivity:
     # Memory saves the facts，elements and history messages in conversation，history_len is used to decide the length of history messages. When the length of history messages is longer than history_len,
     # the former messages will be processed and saved by summary. After every turn of conversation, self.facts and self.elements will be updated.
 
-    def __init__(self, history_len, model_url, model_name, embedding_model_name='jina') -> None:
+    def __init__(self, history_len, model_url, model_name, embedding_model_name='online') -> None:
         """
         Args:
             history_len (int): the length of saved message
@@ -84,10 +84,13 @@ class Proactivity:
                 query_instruction_for_retrieval="Represent this sentence for searching relevant passages:",
                 use_fp16=True
             )
+        elif self.embedding_model_name == 'online':
+            self.embedding_model_url = os.getenv("EMBEDDING_URL")
         else:
             raise KeyError(f'Incorrect arg: {self.embedding_model_name}')
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        self.embedding_model = self.embedding_model.to(device)
+        if self.embedding_model_name != 'online':
+            self.embedding_model = self.embedding_model.to(device)
 
     def call_llm(self, user_messages, system_prompt, temperature=0.6, isjson=False):
         """Call the language model API to generate text
@@ -147,10 +150,11 @@ class Proactivity:
         Args:
             interaction (list of str): user input and AI response
         """
-        out_msg = [self.history_list.pop(0), self.history_list.pop(0)]
-        self._fact_func(json.dumps(interaction, ensure_ascii=False))
-        self._fact_func(interaction)
-        if out_msg[0] != '' and out_msg[1] != '':
+        # out_msg = [self.history_list.pop(0), self.history_list.pop(0)]
+        out_msg = self.history_list.pop(0)
+        self._fact_func(json.dumps(new_msg, ensure_ascii=False))
+        # if out_msg[0] != '' and out_msg[1] != '':
+        if out_msg != '':
             self._summary_func(json.dumps(out_msg, ensure_ascii=False))
 
     def get_from_memory(self) -> json:
@@ -240,7 +244,19 @@ class Proactivity:
         if self.embedding_model_name == 'bert':
             similarities = self.embedding_model.similarity(query_sentence, sentences)
         else:
-            embeddings = self.embedding_model.encode([query_sentence] + sentences)
+            if self.embedding_model_name == 'oneline':
+                payload = {
+                    "text": [query_sentence] + sentences,
+                    # "text": ['你好','你好好'],
+                    "model": "bge-large-zh-v1.5"
+                }
+                headers = {
+                    "Content-Type": "application/json"
+                }
+                response = requests.post(self.embedding_model_url, json=payload, headers=headers)
+                embeddings = response.json()['embedding']
+            else:
+                embeddings = self.embedding_model.encode([query_sentence] + sentences)
             embeddings_query = embeddings[0].reshape(1, -1)
             embeddings_sentences = embeddings[1:]
             similarities = cosine_similarity(embeddings_query, embeddings_sentences)
@@ -419,14 +435,13 @@ class ProactivityChatHelper:
         sys_prompt = self.c_sys_prompt
         if self.mode in [ChatMode.REGULAR_MODE, ChatMode.MEMORY_ONLY]:
             sys_prompt += self.agent.get_from_memory()
-            # flag means whether the msg is rejected. True means not rejected
+            # flag means whether the user_msg is rejected. True means not rejected
             # Not activated in this version
-            # flag, reject_result = self.agent.process(msg)
+            # flag, reject_result = self.agent.process(user_msg)
             # sys_prompt += reject_result
 
         if self.mode in [ChatMode.REGULAR_MODE, ChatMode.NONTEXT_INTERACTION_ONLY, ChatMode.EMOJI_ONLY]:
-            his_msg = json.dumps(self.agent.history_list, ensure_ascii=False)
-            return_type = self.agent.call_llm(msg, sys_prompt + self.judge_sys_prompt)
+            return_type = self.agent.call_llm(user_msg, sys_prompt + self.judge_sys_prompt)
             judge_type = ['敷衍', '延迟回复', '转移话题', '直白拒绝', '不回复', 'emoji回复', '借钱给他', '正常回复']
 
             # ensure llm responses have correctly processed
@@ -455,7 +470,7 @@ class ProactivityChatHelper:
                 print('AI 不想回复你，并把你拉黑了')
                 exit()
             elif return_type == 6 or self.mode == ChatMode.EMOJI_ONLY:
-                res = self.agent.get_topk_emoji(msg)
+                res = self.agent.get_topk_emoji(user_msg)
                 sys_prompt += f'# 指导思想：此次回复的指导思想为: emoji回复，可用emoji有{res}'
                 print(f'AI 给你发 {res}')
                 time.sleep(2)
@@ -470,8 +485,8 @@ class ProactivityChatHelper:
     def get_history_chat(self):
         return self.agent.history_list
 
-    def add_2_agent(self, msg):
-        self.agent.add_2_memory(msg)
+    def add_2_agent(self, user_msg):
+        self.agent.add_2_memory(user_msg)
 
     def clear(self):
         self.agent.clear()
