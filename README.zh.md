@@ -162,7 +162,7 @@ cd CleanS2S/backend
 pip install -r requirements.txt
 ```
 
-- 根据[此处](https://github.com/modelscope/FunASR?tab=readme-ov-file#installation)的说明安装 `funasr` 以支持 paraformer-zh
+- 根据[此处](https://github.com/modelscope/FunASR?tab=readme-ov-file#installation)的说明安装 `funasr (推荐1.1.6版本)` 以支持 paraformer-zh
 - 根据[此处](https://github.com/FunAudioLLM/CosyVoice?tab=readme-ov-file#install)的说明安装 `cosyvoice` 以支持 CosyVoice-300M
 
 #### 下载模型
@@ -275,10 +275,12 @@ pnpm dev --port 3001
 
 ## Roadmap
 - [x] 换声 (Voice Conversion) pipeline 支持（ASR + TTS）(即backend/vc_server_pipeline.py)
-- [ ] WebUI 优化（支持更多样的交互和功能）
+- [x] WebUI 优化（支持更多样的交互和功能）
 - [ ] 推理速度优化
 - [ ] 后端多用户支持
-- [ ] 更多提示词和 RAG 策略 (serper + jina + LightRAG)
+- [ ] 对话中的长期记忆和主动意图机制
+- [ ] 表情包等非文本交机制
+- [x] 更多提示词和 RAG 策略 (serper + jina + LightRAG)
 - [ ] 真实场景下的实用的声纹检测机制
 - [ ] 更多示例和评估工具
 - [ ] 自定义示例角色
@@ -302,7 +304,7 @@ pnpm dev --port 3001
 ```latex
 @misc{CleanS2S,
     title={CleanS2S: High-quality and streaming Speech-to-Speech interactive agent in a single file},
-    author={Niu, Yazhe and Hu, Shuai and Chen, Yun},
+    author={Niu, Yazhe and Hu, Shuai and Chen, Yun and Wang, Haolin},
     publisher={GitHub},
     howpublished={\url{https://github.com/opendilab/CleanS2S}},
     year={2024},

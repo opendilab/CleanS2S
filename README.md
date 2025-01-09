@@ -170,7 +170,7 @@ cd CleanS2S/backend
 pip install -r requirements.txt
 ```
 
-- Install `funasr` for paraformer-zh according to the instructions [here](https://github.com/modelscope/FunASR?tab=readme-ov-file#installation)
+- Install `funasr (1.1.6 recommended)` for paraformer-zh according to the instructions [here](https://github.com/modelscope/FunASR?tab=readme-ov-file#installation)
 - Install `cosyvoice` for CosyVoice-300M according to the instructions [here](https://github.com/FunAudioLLM/CosyVoice?tab=readme-ov-file#install)
 
 #### Downloading models
@@ -284,10 +284,13 @@ P.S.: If you want to run the client locally, you should install node.js and pnpm
 
 ## Roadmap
 - [x] Voice Conversion Pipeline (ASR + TTS) (i.e., backend/vc_server_pipeline.py)
-- [ ] WebUI optimization (support more diverse interactions and functions)
+- [x] WebUI optimization (support more diverse interactions and functions)
 - [ ] Inference speed optimization
 - [ ] Multi-user support for backend
-- [ ] More prompts and RAG strategies (serper + jina + LightRAG)
+- [ ] Long-term memory and proactive intent mechanism in dialogue
+- [ ] Non-textual interaction mechanisms such as emoji packs
+- [x] More prompts and RAG strategies (serper + jina + LightRAG)
+- [ ] Practical voiceprint detection mechanism in real scenes
 - [ ] More examples and evaluation utilities
 - [ ] Customized example characters
 - [ ] More interesting interraction and challenging mechanism
@@ -311,7 +314,7 @@ We appreciate all the feedbacks and contributions. Feel free to ask questions. P
 ```latex
 @misc{CleanS2S,
     title={CleanS2S: High-quality and streaming Speech-to-Speech interactive agent in a single file},
-    author={Niu, Yazhe and Hu, Shuai and Chen, Yun},
+    author={Niu, Yazhe and Hu, Shuai, and Chen, Yun and Wang, Haolin},
     publisher={GitHub},
     howpublished={\url{https://github.com/opendilab/CleanS2S}},
     year={2024},

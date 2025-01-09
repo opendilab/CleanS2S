@@ -1,3 +1,4 @@
+from dataclasses import asdict
 from typing import List, Dict
 import os
 import json
@@ -14,10 +15,26 @@ from concurrent.futures import ThreadPoolExecutor
 from openai import OpenAI
 from langchain_community.document_loaders import TextLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
-from langchain_community.embeddings import HuggingFaceEmbeddings
+from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_community.vectorstores.chroma import Chroma
 from langchain.chains import RetrievalQA
 from langchain_openai import ChatOpenAI
+from transformers import AutoModel, AutoTokenizer
+
+# LightRAG
+from lightrag.llm import openai_complete_if_cache, hf_embedding
+from lightrag import LightRAG, QueryParam
+from lightrag.utils import EmbeddingFunc, locate_json_string_body_from_string
+from lightrag.base import (
+    BaseGraphStorage,
+    BaseKVStorage,
+    BaseVectorStorage,
+    TextChunkSchema,
+    QueryParam,
+)
+from lightrag.prompt import GRAPH_FIELD_SEP, PROMPTS
+from lightrag.operate import _build_local_query_context
+from lightrag.lightrag import always_get_an_event_loop
 
 from s2s_server_pipeline import Chat, ThreadManager, SocketSender, SocketVADReceiver, ParaFormerSTTHandler, \
     CosyVoiceTTSHandler, LanguageModelHandler, LanguageModelAPIHandler, logger
@@ -206,7 +223,7 @@ class RAG:
             raise ValueError("Chroma database is not initialized yet")
         self.db.add_documents(self.documents)
 
-    def search_info(self, query: str) -> List:
+    def search_info(self, query: str, **kwargs) -> List:
         """
         Retrieve information based on a query string.
         Arguments:
@@ -256,6 +273,159 @@ class RAG:
         self.documents = []
 
 
+class CleanS2SLightRAG:
+    """
+    A class that implements the "LightRAG: Simple and Fast Retrieval-Augmented Generation".
+    This class is used to retrieve information from the database and generate answers using a language model.
+    The official repository can be found at: https://github.com/HKUDS/LightRAG.
+    """
+
+    def __init__(
+            self,
+            embedding_model_name: str,
+            db_path: str,
+            lm_model_name: str = "deepseek-chat",
+            lm_model_url: str = "https://api.deepseek.com",
+            mode: str = 'local'
+    ) -> None:
+        """
+        Initialize the RAG module with the specified parameters.
+        Arguments:
+            - embedding_model_name (str): The name of the embedding model to use. Usually a HuggingFace model.
+            - db_path (str): The local path to the database directory.
+            - lm_model_name (str): The name of the language model API to use.
+            - lm_model_url (str): The URL of the language model API.
+            - mode (str): which mode of searching should be used. This value can be chosen from \
+                ["local", "global", "hybrid", "naive"]
+        """
+
+        async def llm_model_func(
+                prompt, system_prompt=None, history_messages=[], **kwargs
+        ) -> str:
+            # Get the response of llm in an asynchronous manner.
+            return await openai_complete_if_cache(
+                lm_model_name,
+                prompt,
+                system_prompt=system_prompt,
+                history_messages=history_messages,
+                api_key=os.getenv("LLM_API_KEY"),
+                base_url=lm_model_url,
+                **kwargs
+            )
+
+        self.db_path = db_path
+        if not os.path.exists(self.db_path):
+            os.makedirs(self.db_path, exist_ok=True)
+
+        # Initialize LightRAG.
+        self.rag = LightRAG(
+            working_dir=db_path,
+            llm_model_func=llm_model_func,  # Use llm api for text generation
+            # Use Hugging Face embedding function
+            embedding_func=EmbeddingFunc(
+                # Note that this value should be changed when the embedding model changes.
+                embedding_dim=os.getenv("EMBEDDING_DIM", default=768),
+                max_token_size=2048,
+                func=lambda texts: hf_embedding(
+                    texts,
+                    tokenizer=AutoTokenizer.from_pretrained(embedding_model_name),
+                    embed_model=AutoModel.from_pretrained(embedding_model_name)
+                )
+            )
+        )
+        self.rag.chunk_token_size = 4096
+
+        self.lm_model_name = lm_model_name
+        self.lm_model_url = lm_model_url
+
+        self.documents = []
+        self.mode = mode
+
+    def split_document(self, path: str, *arg, **kwargs) -> None:
+        """
+        Load documents one by one from each file.
+        Arguments:
+            - path (str): The path where the document is located.
+        Returns:
+            - None
+        """
+        document_file_list = glob.glob(os.path.join(path, "*.txt"))
+        for i in range(len(document_file_list)):
+            raw_doc = TextLoader(document_file_list[i], encoding="utf-8").load()[0].page_content
+            self.documents.append(raw_doc)
+
+    def embedding_process(self) -> None:
+        """
+        The embedding process of LightRAG is to insert new documents into the knowledge graph.
+        """
+        self.rag.insert(self.documents)
+
+    def load_db(self) -> None:
+        # Placeholder function.
+        return
+
+    def update_db_docs(self) -> None:
+        # Placeholder function.
+        return
+
+    def search_info(self, query: str, key_words, top_k: int = 1) -> List:
+        """
+        Search the information from the knowledge graph given a query.
+        Arguments:
+            - query (str): The query string.
+            - key_words (List[str]): The keywords to search for.
+            - top_k (int): The number of top results to return.
+        Returns:
+            - result (List): The list of retrieved information.
+        """
+
+        async def _local_query(
+                query,
+                keywords,
+                knowledge_graph_inst: BaseGraphStorage,
+                entities_vdb: BaseVectorStorage,
+                relationships_vdb: BaseVectorStorage,
+                text_chunks_db: BaseKVStorage[TextChunkSchema],
+                query_param: QueryParam,
+                global_config: dict,
+        ) -> str:
+            context = await _build_local_query_context(
+                keywords,
+                knowledge_graph_inst,
+                entities_vdb,
+                text_chunks_db,
+                query_param,
+            )
+            return context
+
+        def _query(rag, query: str, key_words: List[str], param: QueryParam = QueryParam()) -> str:
+            """
+            Search the information from the knowledge graph given a query.
+            """
+            loop = always_get_an_event_loop()
+            return loop.run_until_complete(_local_query(
+                query,
+                key_words,
+                rag.chunk_entity_relation_graph,
+                rag.entities_vdb,
+                rag.relationships_vdb,
+                rag.text_chunks,
+                param,
+                asdict(rag),
+            ))
+
+        return [_query(self.rag, query, key_words, param=QueryParam(mode=self.mode, top_k=top_k))]
+
+    def retrival_qa_chain_from_db(self, query: str) -> str:
+        raise NotImplementedError
+
+    def clear(self) -> None:
+        """
+        Clear the state variables.
+        """
+        self.documents = []
+
+
 class RAGLanguageModelHelper:
     """
     Handler class for interacting with the language model through the WebSearch and RAG.
@@ -287,6 +457,8 @@ class RAGLanguageModelHelper:
             max_new_tokens: int,
             embedding_model_name: str,
             db_path: str = "./persist_db",
+            rag_backend: str = 'light_rag',
+            rag_mode: str = 'local'
     ) -> None:
         """
         Initialize the RAG language model helper with the specified parameters.
@@ -296,6 +468,10 @@ class RAGLanguageModelHelper:
             - max_new_tokens (int): The maximum number of new tokens to generate.
             - embedding_model_name (str): The name of the embedding model to use. Usually a HuggingFace model.
             - db_path (str): The local path to the database directory.
+            - rag_backend (str): The backend used for RAG. This value can be either "base" or "light_rag".
+            - rag_mode (str): When using LightRAG as backend, which mode of searching should be used. This value can
+                be chosen from ["local", "global", "hybrid", "naive"]. The detailed meaning of these options can be
+                viewed at: https://github.com/HKUDS/LightRAG.
         """
         self.model_name = model_name
         self.model_url = model_url
@@ -305,12 +481,26 @@ class RAGLanguageModelHelper:
         self.tmp_dir = f"ragtmp/{str(uuid4())[:8]}/"
         self.history_keywords = ""
         self.search = WebSearchHelper()
-        self.rag = RAG(
-            lm_model_name=self.model_name,
-            lm_model_url=self.model_url,
-            embedding_model_name=self.embedding_model_name,
-            db_path=self.db_path
-        )
+        self.rag_backend = rag_backend
+
+        if rag_backend == 'base':
+            self.rag = RAG(
+                lm_model_name=self.model_name,
+                lm_model_url=self.model_url,
+                embedding_model_name=self.embedding_model_name,
+                db_path=self.db_path
+            )
+        elif rag_backend == 'light_rag':
+            self.rag = CleanS2SLightRAG(
+                lm_model_name=self.model_name,
+                lm_model_url=self.model_url,
+                embedding_model_name=self.embedding_model_name,
+                db_path=self.db_path,
+                mode=rag_mode
+            )
+        else:
+            raise ValueError(f"Unrecognized rag backend: {rag_backend}")
+
         self.client = OpenAI(api_key=os.getenv("LLM_API_KEY"), base_url=self.model_url)
         # for filename in os.listdir(self.tmp_dir):
         #     file_path = os.path.join(self.tmp_dir, filename)
@@ -355,12 +545,33 @@ class RAGLanguageModelHelper:
             os.makedirs(self.tmp_dir, exist_ok=True)
 
         # refine the search query
-        content = f"""
-        结合当前问题和历史关键词，提取用于互联网搜索的关键词，只返回关键词即可，关键词之间用空格分隔。
-        当前问题：{prompt}
-        历史关键词：{self.history_keywords}
-        """
-        search_query = "".join(self._call_llm([{"role": "user", "content": content}]))
+        kw_prompt_temp = PROMPTS["keywords_extraction"]
+        kw_prompt = kw_prompt_temp.format(query=prompt) + \
+                    "Ensure to reply the keywords with the same language as the query."
+        result = self._call_llm([{"role": "user", "content": kw_prompt}])
+        json_text = locate_json_string_body_from_string(result)
+
+        try:
+            keywords_data = json.loads(json_text)
+            keywords = keywords_data.get("low_level_keywords", [])
+            search_query = ", ".join(keywords)
+        except json.JSONDecodeError:
+            try:
+                result = (
+                    result.replace(kw_prompt[:-1], "")
+                        .replace("user", "")
+                        .replace("model", "")
+                        .strip()
+                )
+                result = "{" + result.split("{")[1].split("}")[0] + "}"
+
+                keywords_data = json.loads(result)
+                keywords = keywords_data.get("low_level_keywords", [])
+                search_query = ", ".join(keywords)
+            # Handle parsing error
+            except json.JSONDecodeError as e:
+                search_query = ""
+
         self.history_keywords = f"{search_query};{self.history_keywords}"
 
         # search more information at the beginning of the conversation (count == 1)
@@ -373,14 +584,13 @@ class RAGLanguageModelHelper:
         # self.nativerag.load_db()
         self.rag.embedding_process()
         # summary = self.rag.retrival_qa_chain_from_db(self.summary_prompt)
-        rag_result = self.rag.search_info(prompt)
+        rag_result = self.rag.search_info(prompt, key_words=self.history_keywords)
         # logger.info(f"summary:{summary}, result:{rag_result}")
         rag_result_str = '\n'.join(rag_result)
-
         original_messages = [
             {
                 "role": "system",
-                "content": self.original_system_prompt + f"\n尽量控制在{int(0.67*self.max_new_tokens)}字以内"
+                "content": self.original_system_prompt + f"\n尽量控制在{int(0.67 * self.max_new_tokens)}字以内"
             },
             *chat.to_list(),
             # {"role": "user", "content": f"用户问题：{prompt}\n问题相关信息总结：{summary}\n互联网上的话题相关观点：{rag_result_str}\n"}
