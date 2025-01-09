@@ -245,7 +245,7 @@ class Proactivity:
         if self.embedding_model_name == 'bert':
             similarities = self.embedding_model.similarity(query_sentence, sentences)
         else:
-            if self.embedding_model_name == 'oneline':
+            if self.embedding_model_name == 'online':
                 payload = {
                     "text": [query_sentence] + sentences,
                     # "text": ['你好','你好好'],
@@ -258,7 +258,7 @@ class Proactivity:
                 embeddings = response.json()['embedding']
             else:
                 embeddings = self.embedding_model.encode([query_sentence] + sentences)
-            embeddings_query = embeddings[0].reshape(1, -1)
+            embeddings_query = torch.tensor(embeddings[0]).reshape(1, -1)
             embeddings_sentences = embeddings[1:]
             similarities = cosine_similarity(embeddings_query, embeddings_sentences)
         return similarities[0]
