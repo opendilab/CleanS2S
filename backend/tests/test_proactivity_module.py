@@ -29,7 +29,7 @@ def main():
     )
     user_input = ''
     while True:
-        user_input = input('输入 exit 退出\n')
+        user_input = input('输入 exit 退出\n').encode('utf-8', errors='ignore').decode('utf-8')
         if user_input == 'exit':
             break
         inputs = {

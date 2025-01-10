@@ -144,15 +144,16 @@ class Proactivity:
 
         return res
 
-    def add_2_memory(self, new_msg) -> None:
+    def add_2_memory(self, interaction) -> None:
         """add interaction to self.facts and self.summary
 
         Args:
             interaction (list of str): user input and AI response
         """
+        self.history_list.append(interaction)
         # out_msg = [self.history_list.pop(0), self.history_list.pop(0)]
         out_msg = self.history_list.pop(0)
-        self._fact_func(json.dumps(new_msg, ensure_ascii=False))
+        self._fact_func(json.dumps(interaction, ensure_ascii=False))
         # if out_msg[0] != '' and out_msg[1] != '':
         if out_msg != '':
             self._summary_func(json.dumps(out_msg, ensure_ascii=False))
@@ -187,7 +188,7 @@ class Proactivity:
         res = []
         keylist = list(self.emoji_dataset.keys())
         for k in top_k_indexes:
-            res.append(chr(keylist[k]))
+            res.append(chr(int(keylist[k], 16)))
         return res
 
     def _scores_match_sentences(self, query_sentence):
@@ -221,11 +222,11 @@ class Proactivity:
             if len(rank) != 0:
                 tscore = sum(
                     [
-                        (0.6 * simlist[i + simindex] + 0.4 * simlist[i + simindex + 1]) * (rank[i] / max_rank)
+                        (0.6 * simlist[i + simindex] + 0.4 * simlist[i + simindex + 1]) * ((max_rank - rank[i]) / max_rank)
                         for i in range(len(rank))
                     ]
                 ) / (len(rank) ** 0.5)
-                simindex += len(rank)
+                simindex += 2 * len(rank)
                 scorelist.append(tscore)
             else:
                 scorelist.append(0)
@@ -244,7 +245,7 @@ class Proactivity:
         if self.embedding_model_name == 'bert':
             similarities = self.embedding_model.similarity(query_sentence, sentences)
         else:
-            if self.embedding_model_name == 'oneline':
+            if self.embedding_model_name == 'online':
                 payload = {
                     "text": [query_sentence] + sentences,
                     # "text": ['你好','你好好'],
@@ -257,7 +258,7 @@ class Proactivity:
                 embeddings = response.json()['embedding']
             else:
                 embeddings = self.embedding_model.encode([query_sentence] + sentences)
-            embeddings_query = embeddings[0].reshape(1, -1)
+            embeddings_query = torch.tensor(embeddings[0]).reshape(1, -1)
             embeddings_sentences = embeddings[1:]
             similarities = cosine_similarity(embeddings_query, embeddings_sentences)
         return similarities[0]
