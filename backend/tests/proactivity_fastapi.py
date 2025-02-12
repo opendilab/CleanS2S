@@ -27,8 +27,6 @@ model_url = "http://14.103.16.79:11000/v1"
 
 user_lms = {}
 
-cnt = 0
-
 def get_or_create_lm(uid: str):
     if uid not in user_lms:
         lm = LanguageModelAPIHandlerProactivity(
