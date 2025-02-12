@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI
 from pydantic import BaseModel
 import os
 import sys
@@ -18,9 +18,12 @@ stop_event = Event()
 interruption_event = Event()
 cur_conn_end_event = Event()
 
-# 模型配置
-model_name = "deepseek-chat"
-model_url = "https://api.deepseek.com"
+# model config
+# model_name = "deepseek-chat"
+# model_url = "https://api.deepseek.com"
+
+model_name = "llama-3.3-70B-instruct"
+model_url = "http://14.103.16.79:11000/v1"
 
 user_lms = {}
 
@@ -45,12 +48,12 @@ def get_or_create_lm(uid: str):
 
 class RequestBody(BaseModel):
     user_input: str
-    uid: Optional[str] = None  # uid 是可选的
+    uid: Optional[str] = None  # uid is optional
 
 @app.post("/process")
 def process_input(request_body: RequestBody):
     user_input = request_body.user_input
-    uid = request_body.uid or str(uuid.uuid4())  # 如果没有提供uid, 生成一个新的uid
+    uid = request_body.uid or str(uuid.uuid4())  # if uid is not provided, generate a new uid
 
     lm = get_or_create_lm(uid)
 
