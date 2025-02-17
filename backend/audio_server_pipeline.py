@@ -207,6 +207,88 @@ class TTSHandler(BaseHandler):
 
 
 
+class ASRHandler(BaseHandler):
+    """
+    Handlers for text-to-speech (TTS) conversion, based on https://docs.siliconflow.cn/cn/api-reference/audio
+    """
+
+    def __init__(
+            self,
+            stop_event: Event,
+            cur_conn_end_event: Event,
+            queue_in: Queue,
+            queue_out: Queue,
+            interruption_event: Event,
+            model_name: str = "FunAudioLLM/SenseVoiceSmall",
+            model_url: str = "https://api.siliconflow.cn/v1/audio/transcriptions",  
+            device: str = "cuda",
+            dtype: str = "float32",
+    ) -> None:
+        """
+        Arguments:
+            - stop_event (Event): Event used to stop the processor.
+            - cur_conn_end_event (Event): Event used to indicate whether the current connection has ended.
+            - queue_in (Queue): Input queue.
+            - queue_out (Queue): Output queue.
+            - interruption_event (Event): Event used to trigger user interruption.
+            - model_name (str): The name of the model to use. Such as 'CosyVoice-300M'.
+            - model_url(str): The base url of siliconflow api
+            - device (str): The device to use for TTS model.
+            - dtype (str): The data type to use for processing. Usually 'bfloat16' or 'float16' or 'float32'.
+        """
+        super().__init__(stop_event, cur_conn_end_event, queue_in, queue_out)
+        self.interruption_event = interruption_event
+        self.device = device
+        self.torch_dtype = getattr(torch, dtype)
+        self.working_event = Event()
+
+        self.model_name = model_name
+        self.model_url = model_url
+
+        self.api_key = os.getenv("API_KEY")
+        if self.api_key is None:
+            raise ValueError("Environment variable 'API_KEY' is not set")
+
+
+    def process(self, file_path):
+        while self.working_event.is_set():
+            time.sleep(0.1)
+        self.working_event.set()
+
+        def audio2text():
+            with open(file_path, "rb") as audio_file:
+                files = {
+                    "file": ("audio_file.wav", audio_file, "audio/wav"),
+                    "model": (None, self.model_name, "text/plain")
+                }
+
+                headers = {
+                "Authorization": f"Bearer {self.api_key}"
+                }
+                
+                response = requests.post(self.model_url, files=files, headers=headers)
+                response = response.json()
+                return response['text']
+
+        if self.interruption_event.is_set() or self.cur_conn_end_event.is_set():
+            logger.info("Stop TTS generation due to the current connection is end")
+
+        response = audio2text()
+
+        self.working_event.clear()
+
+        return response
+
+    def clear_current_state(self) -> None:
+        """
+        Clears the current state, restart/resets the reference audio and prompt (random choice from the reference list).
+        """
+        super().clear_current_state()
+
+
+
+
+
 
 
     
