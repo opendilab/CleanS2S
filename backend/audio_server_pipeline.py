@@ -6,25 +6,21 @@ import glob
 import os
 import time
 import logging
-
-
-from s2s_server_pipeline import BaseHandler
-
-      
 import requests
-from openai import OpenAI
 from typing import Tuple,Dict,List
-import base64
+
+from s2s_server_pipeline import BaseHandler   
 
 
 logger = logging.getLogger(__name__)
 logger.setLevel(level=logging.INFO)
 
-console_handler = logging.StreamHandler()
-console_formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-console_handler.setFormatter(console_formatter)
+if not logger.hasHandlers():
+    console_handler = logging.StreamHandler()
+    console_formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    console_handler.setFormatter(console_formatter)
+    logger.addHandler(console_handler)
 
-logger.addHandler(console_handler)
 
 
 class TTSHandler(BaseHandler):
@@ -41,7 +37,7 @@ class TTSHandler(BaseHandler):
             interruption_event: Event,
             ref_dir: str,
             model_name: str = "FunAudioLLM/CosyVoice2-0.5B",
-            model_url: Optional[str] = None,  
+            model_url: str = "https://api.siliconflow.cn/v1",  
             device: str = "cuda",
             dtype: str = "float32",
     ) -> None:
@@ -70,6 +66,8 @@ class TTSHandler(BaseHandler):
         self.input_folder = ref_dir
 
         self.api_key = os.getenv("API_KEY")
+        if self.api_key is None:
+            raise ValueError("Environment variable 'API_KEY' is not set")
 
         self.ref_audio_cnt = 0
 
@@ -124,11 +122,12 @@ class TTSHandler(BaseHandler):
         """
         headers = {"Authorization": f"Bearer {self.api_key}"}
         response = requests.request("GET", self.list_ref_url, headers=headers)
-        return response.json()['result']
+        response = response.json()
+        return response['result']
 
     def process(self, text, ref_voice, save_path, stream = False, 
-                config: Dict[str, Union[str, int, bool, dict]] = None) -> None:
-        """_summary_
+                config: Dict[str, Union[str, int, bool, dict]] = dict()) -> None:
+        """transform text to speech, now text is str not list
 
         Args:
             text (str): User input text to be transformed
