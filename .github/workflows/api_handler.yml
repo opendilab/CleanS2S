@@ -22,10 +22,8 @@ jobs:
     - name: Install Miniconda
       uses: conda-incubator/setup-miniconda@v3
       with:
-        miniforge-variant: Mambaforge
+        miniforge-variant: Miniforge3
         python-version: "3.10"
-        activate-environment: cosyvoice
-        use-mamba: true
 
     - name: Add Conda to system path
       run: |
