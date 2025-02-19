@@ -31,4 +31,5 @@ jobs:
     - name: Test with pytest
       run: |
         pip install pytest
+        export PYTHONPATH=$PYTHONPATH:$(pwd)
         pytest backend/tests/test_siliconflow_asr.py
