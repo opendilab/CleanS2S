@@ -3,7 +3,7 @@ name: ASR_TTS_LLM_HANDLER
 on: [push]
 
 jobs:
-  build-linux:
+  build-linux-env:
     runs-on: ubuntu-latest
     strategy:
       max-parallel: 5
@@ -20,7 +20,7 @@ jobs:
         echo $CONDA/bin >> $GITHUB_PATH
     - name: Install dependencies
       run: |
-        conda env update --file environment.yml --name base
+        pip install -r backend/requirements.txt
     - name: Lint with flake8
       run: |
         conda install flake8
