@@ -29,13 +29,11 @@ jobs:
       run: |
         echo $CONDA/bin >> $GITHUB_PATH
 
-    - name: Create Conda environment and install dependencies
+    - name: Create Conda environment 
       shell: bash -l {0}
       run: |
         conda create -n cosyvoice -y python=3.10
-        conda activate cosyvoice
-        conda install -y -c conda-forge pynini==2.1.5
-        pip install -r backend/requirements.txt -i https://mirrors.aliyun.com/pypi/simple/ --trusted-host=mirrors.aliyun.com
+        pip install -r backend/requirements.txt
 
     - name: Install CosyVoice dependencies
       shell: bash -l {0}
@@ -44,7 +42,9 @@ jobs:
         git clone --recursive https://github.com/FunAudioLLM/CosyVoice.git
         cd CosyVoice
         git submodule update --init --recursive
-        pip install -r requirements.txt -i https://mirrors.aliyun.com/pypi/simple/ --trusted-host=mirrors.aliyun.com
+        conda install -y -c conda-forge pynini==2.1.5
+        pip install -r backend/requirements.txt -i https://mirrors.aliyun.com/pypi/simple/ --trusted-host=mirrors.aliyun.com
+        cd ..
 
     - name: Install sox (Ubuntu)
       run: sudo apt-get install -y sox libsox-dev
