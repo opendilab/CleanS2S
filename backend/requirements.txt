@@ -6,3 +6,4 @@ librosa
 rich
 websockets
 openai>=1.0
+transformer>=4.49.0
