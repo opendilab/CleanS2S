@@ -32,3 +32,4 @@ jobs:
         export PYTHONPATH=$PYTHONPATH:$(pwd)
         pytest backend/tests/test_siliconflow_asr.py
         pytest backend/tests/test_siliconflow_tts.py
+        pytest backend/tests/test_llm_api.py
