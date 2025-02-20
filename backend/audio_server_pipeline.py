@@ -146,7 +146,7 @@ class TTSHandler(BaseHandler):
         else:
             os.makedirs(save_path, exist_ok=True)
     
-            file_name = f"{text[:5] if len(text) >= 5 else text}.{config.get("response_format", "mp3")}"
+            file_name = f"{text[:5] if len(text) >= 5 else text}.{config.get('response_format', 'mp3')}"
             file_name = "".join(c for c in file_name if c.isalnum() or c in (' ', '.', '_')).rstrip()
             
             file_path = os.path.join(save_path, file_name)
