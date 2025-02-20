@@ -6,7 +6,7 @@ sys.path.append('..')
 from audio_server_pipeline import TTSHandler
 
 
-def main():
+def test_tts():
     stop_event = Event()
     interruption_event = Event()
     cur_conn_end_event = Event()
@@ -25,6 +25,5 @@ def main():
     model.process(inputs, ref_voice, save_path)
 
 
-
 if __name__ == "__main__":
-    main()
+    test_tts()
