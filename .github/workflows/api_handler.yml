@@ -28,4 +28,5 @@ jobs:
       run: |
         pip install pytest
         export PYTHONPATH=$PYTHONPATH:$(pwd)
+        export API_KEY='sk-ewsxuwbxlemurrxgemwajzekyxjcwaxtjdrticixzabwvokh'
         pytest backend/tests/test_siliconflow_asr.py
