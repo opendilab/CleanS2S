@@ -26,7 +26,8 @@ jobs:
         flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
     - name: Test asr, tts, llm
       env: 
-        API_KEY: ${{ secrets.API_KEY}}
+        API_KEY: ${{secrets.API_KEY}}
+        LLM_API_KEY: ${{secrets.LLM_API_KEY}}
       run: |
         pip install pytest
         export PYTHONPATH=$PYTHONPATH:$(pwd)
