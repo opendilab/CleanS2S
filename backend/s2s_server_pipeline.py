@@ -15,7 +15,7 @@ from time import perf_counter
 
 import numpy as np
 import torch
-# import nltk
+import nltk
 import asyncio
 import websockets
 from rich.console import Console
@@ -34,12 +34,12 @@ except ImportError as e:
     CosyVoice = None
 
 # Ensure that the necessary NLTK resources are available
-# try:
-#     nltk.data.find('tokenizers/punkt_tab')
-#     nltk.data.find('averaged_perceptron_tagger_eng')
-# except LookupError:
-#     nltk.download('punkt_tab')
-#     nltk.download('averaged_perceptron_tagger_eng')
+try:
+    nltk.data.find('tokenizers/punkt_tab')
+    nltk.data.find('averaged_perceptron_tagger_eng')
+except LookupError:
+    nltk.download('punkt_tab')
+    nltk.download('averaged_perceptron_tagger_eng')
 
 # caching allows ~50% compilation time reduction
 # see https://docs.google.com/document/d/1y5CRfMLdwEoF1nTk9q8qEu1mgMUuUtvhklPKJ2emLU8/edit#heading=h.o2asbxsrp1ma
