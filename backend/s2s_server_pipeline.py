@@ -12,6 +12,7 @@ import threading
 from queue import Queue, Empty
 from threading import Event, Thread
 from time import perf_counter
+from uid import UidManager
 
 import numpy as np
 import torch
@@ -1228,6 +1229,7 @@ class LanguageModelAPIHandler(BaseHandler):
             init_chat_prompt: str = "你是一个风趣幽默且聪明的智能体。",
             model_url: Optional[str] = None,  # only use for LM API
             generate_questions: bool = True,  # control flag for generating questions after the reply
+            uid_manager: UidManager = None, 
             **kwargs,  # for compatibility with other LMs
     ) -> None:
         """
@@ -1255,6 +1257,10 @@ class LanguageModelAPIHandler(BaseHandler):
         self.interruption_event = interruption_event
         self.max_new_tokens = max_new_tokens
         self.generate_questions = generate_questions
+        if uid_manager is None:
+            self.uid_manager = UidManager()
+        else:
+            self.uid_manager = uid_manager
         if do_sample:
             self.temperature = temperature
         else:
@@ -1293,6 +1299,7 @@ class LanguageModelAPIHandler(BaseHandler):
         logger.info("inference language model...")
         prompt, user_input_count, uid, audio_input = inputs["data"], inputs["user_input_count"], inputs["uid"], inputs[
             "audio_input"]
+        self.uid_manager.process(uid)
         count = 0
         # If user interruption is triggered, generate a transition sentence and yield it
         if self.interruption_event.is_set():
