@@ -105,3 +105,10 @@ class UidManager:
         else:
             # if uid exists, update access time
             self._update_access_time(uid)
+
+    def get_current_uids(self):
+        """
+        Get all available UID(for debug)
+        """
+        with self._lock:
+            return list(self._uid_info.keys())
