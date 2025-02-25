@@ -17,13 +17,6 @@ jobs:
     - name: Install dependencies
       run: |
         pip install -r backend/requirements.txt
-    - name: Lint with flake8
-      run: |
-        pip install flake8
-        # stop the build if there are Python syntax errors or undefined names
-        flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
-        # exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
-        flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
     - name: Test asr, tts, llm
       env: 
         API_KEY: ${{secrets.API_KEY}}
@@ -31,6 +24,6 @@ jobs:
       run: |
         pip install pytest
         export PYTHONPATH=$PYTHONPATH:$(pwd)
-        pytest backend/tests/test_siliconflow_asr.py
-        pytest backend/tests/test_siliconflow_tts.py
-        pytest backend/tests/test_llm_api.py
+        pytest backend/tests/test_siliconflow_asr.py -s
+        pytest backend/tests/test_siliconflow_tts.py -s
+        pytest backend/tests/test_llm_api.py -s

@@ -2,9 +2,7 @@ from threading import Event
 import os
 import sys
 
-sys.path.append('..')
 from audio_server_pipeline import TTSHandler
-
 
 def test_tts():
     stop_event = Event()
