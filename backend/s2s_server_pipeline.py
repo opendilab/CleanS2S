@@ -12,6 +12,9 @@ import threading
 from queue import Queue, Empty
 from threading import Event, Thread
 from time import perf_counter
+import glob
+import requests
+from io import BytesIO
 
 import numpy as np
 import torch
@@ -1822,20 +1825,39 @@ class TTSHandler(BaseHandler):
             if response.status_code == 200:
                 with open(file_path,'wb')as file:
                     file.write(response.content)
-                print(f"file saved at {file_path}")
+                logger.info(f"file saved at {file_path}")
+
+                try:
+                    audio_bytes = BytesIO(response.content)
+                    waveform, sr = torchaudio.load(audio_bytes, format=config.get("response_format", "mp3"))
+
+                    # assert sr == sample_rate, "sample rate does not match"
+                    self._last_audio_array = waveform.numpy()
+
+                except Exception as e:
+                    logger.error(f"Error decoding audio with torchaudio: {e}")
+                    self._last_audio_array = None
             else:
-                print(f"error: status code {response.status_code}")
+                logger.info(f"error: status code {response.status_code}")
+                self._last_audio_array = None
 
         if self.interruption_event.is_set() or self.cur_conn_end_event.is_set():
             logger.info("Stop TTS generation due to the current connection is end")
+            self.working_event.clear()
+            return None
 
         thread = Thread(target=text2audio)
         thread.start()
+        thread.join()
 
         if self.interruption_event.is_set() or self.cur_conn_end_event.is_set():
             logger.info("Stop TTS generation due to the current connection is end")
+            self.working_event.clear()
+            return None
 
         self.working_event.clear()
+
+        return self._last_audio_array
 
     def clear_current_state(self) -> None:
         """

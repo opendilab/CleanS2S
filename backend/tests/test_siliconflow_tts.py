@@ -2,7 +2,7 @@ from threading import Event
 import os
 import sys
 
-from audio_server_pipeline import TTSHandler
+from s2s_server_pipeline import TTSHandler
 
 def test_tts():
     stop_event = Event()
@@ -20,7 +20,9 @@ def test_tts():
     ref_voice = "FunAudioLLM/CosyVoice2-0.5B:alex"
     save_path = "res"
 
-    model.process(inputs, ref_voice, save_path)
+    audio_np = model.process(inputs, ref_voice, save_path)
+
+    print(audio_np.shape)
 
 
 if __name__ == "__main__":
