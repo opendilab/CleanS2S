@@ -11,6 +11,7 @@ console_handler.setFormatter(console_formatter)
 
 logger.addHandler(console_handler)
 
+
 class UidManager:
     """
     UID Management
@@ -19,17 +20,18 @@ class UidManager:
     - Implements an expiration mechanism to remove inactive UIDs.
     - Thread-safe.
     """
-    def __init__(self, max_uid_count=100, uid_timeout=3600):
+
+    def __init__(self, max_uid_count=100, uid_timeout_second=3600):
         """
         :max_uid_count: Maximum number of active UIDs allowed in the system.
         :uid_timeout:   UID expiration time (in seconds); if not accessed within this time, the UID is removed.
         """
         self.max_uid_count = max_uid_count
-        self.uid_timeout = uid_timeout
-        
+        self.uid_timeout_second = uid_timeout_second
+
         # Stores UID information: {uid: last_access_time (float)}
         self._uid_info = {}
-        
+
         self._lock = threading.Lock()
 
     def _join(self, uid: str) -> bool:
@@ -51,9 +53,9 @@ class UidManager:
             else:
                 # Check if global UID limit is reached
                 if len(self._uid_info) >= self.max_uid_count:
-                    return False  
+                    return False
                 # Add new UID
-                self._uid_info[uid] = time.time()
+                self._uid_info[uid] = {'last_time': time.time()}
                 return True
 
     def _leave(self, uid: str):
@@ -71,13 +73,14 @@ class UidManager:
         with self._lock:
             return uid in self._uid_info
 
-    def _update_access_time(self, uid: str):
-        """
+    def _update_uid_info(self, uid: str, user_info: dict):
+        """ 
         Updates the last access time of a UID.
         """
         with self._lock:
             if uid in self._uid_info:
-                self._uid_info[uid] = time.time()
+                self._uid_info[uid].update(user_info)
+                self._uid_info[uid]['last_time'] = time.time()
 
     def cleanup_expired(self):
         """
@@ -92,19 +95,25 @@ class UidManager:
         - This method should be called within a lock.
         """
         now = time.time()
-        expired = [uid for uid, last_access in self._uid_info.items() if now - last_access > self.uid_timeout]
+        expired = [uid for uid, last_access in self._uid_info.items() if now - last_access > self.uid_timeout_second]
 
         for uid in expired:
             del self._uid_info[uid]
 
-    def process(self, uid: str):
+    def process(self, uid: str, user_info: dict):
+        """
+        Arguments:
+            -uid(str):
+            -user_info(dict, optional):
+        """
+
         if not self._exists(uid):
             if not self._join(uid):
                 raise ValueError(f"UID {uid} reaches max count")
 
         else:
             # if uid exists, update access time
-            self._update_access_time(uid)
+            self._update_uid_info(uid, user_info)
 
     def get_current_uids(self):
         """
