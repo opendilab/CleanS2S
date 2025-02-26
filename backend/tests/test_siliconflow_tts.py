@@ -16,13 +16,18 @@ def test_tts():
         interruption_event=interruption_event,
         ref_dir="ref_audio",
     )
-    inputs = "只用一个文件实现的流式全双工语音交互原型智能体！"
+    text = "只用一个文件实现的流式全双工语音交互原型智能体！"
     ref_voice = "FunAudioLLM/CosyVoice2-0.5B:alex"
     save_path = "res"
 
-    audio_np = model.process(inputs, ref_voice, save_path)
+    inputs = {"text": text, "ref_voice": ref_voice, "save_path": save_path}
+
+    audio_np = model.process(inputs)
 
     print(audio_np.shape)
+
+    if audio_np is not None:
+        assert len(audio_np) > 32000
 
 
 if __name__ == "__main__":

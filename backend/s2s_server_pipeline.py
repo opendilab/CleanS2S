@@ -1690,8 +1690,6 @@ class TTSHandler(BaseHandler):
             ref_dir: str,
             model_name: str = "FunAudioLLM/CosyVoice2-0.5B",
             model_url: str = "https://api.siliconflow.cn/v1",  
-            device: str = "cuda",
-            dtype: str = "float32",
     ) -> None:
         """
         Arguments:
@@ -1703,13 +1701,9 @@ class TTSHandler(BaseHandler):
             - ref_dir (str): The path to the reference directory containing the reference audio files (*.wav).
             - model_name (str): The name of the model to use. Such as 'CosyVoice-300M'.
             - model_url(str): The base url of siliconflow api
-            - device (str): The device to use for TTS model.
-            - dtype (str): The data type to use for processing. Usually 'bfloat16' or 'float16' or 'float32'.
         """
         super().__init__(stop_event, cur_conn_end_event, queue_in, queue_out)
         self.interruption_event = interruption_event
-        self.device = device
-        self.torch_dtype = getattr(torch, dtype)
         self.working_event = Event()
 
         self.model_name = model_name
@@ -1717,9 +1711,9 @@ class TTSHandler(BaseHandler):
 
         self.input_folder = ref_dir
 
-        self.api_key = os.getenv("API_KEY")
+        self.api_key = os.getenv("ASR_TTS_API_KEY")
         if self.api_key is None:
-            raise ValueError("Environment variable 'API_KEY' is not set")
+            raise ValueError("Environment variable 'ASR_TTS_API_KEY' is not set")
 
         self.ref_audio_cnt = 0
 
@@ -1776,21 +1770,30 @@ class TTSHandler(BaseHandler):
         response = requests.request("GET", self.list_ref_url, headers=headers)
         response = response.json()
         return response['result']
-
-    def process(self, text, ref_voice, save_path, stream = False, 
-                config: Dict[str, Union[str, int, bool, dict]] = dict()) -> None:
+        
+    def process(self, inputs: Dict[str, Union[str, int, bool, dict]], config: Dict[str, Union[str, int, bool, dict]] = dict()) -> np.ndarray:
         """transform text to speech, now text is str not list
 
         Args:
-            text (str): User input text to be transformed
-            ref_voice (str): The uri of the reference voice to be applied on the text
-            save_path (str): The save path of the output audio path
-            stream (bool, optional): whether the output is in stream format. Defaults to False. Not supported now.
+            inputs(Dict):
+                'text' (str): User input text to be transformed
+                'ref_voice' (str): The uri of the reference voice to be applied on the text
+                'save_path' (str): The save path of the output audio path
+                'stream' (bool, optional): whether the output is in stream format. Defaults to False. Not supported now.
             config (Dict[str, Union[str, int, bool, dict]], optional): configuration of the TTS model including response_format(default "mp3"), sample_rate(default 32000), speed(default 1) and gain(default 0). Defaults to None.
         """
         while self.working_event.is_set():
             time.sleep(0.1)
         self.working_event.set()
+
+        required_keys = {"text", "ref_voice", "save_path"}
+        if not required_keys.issubset(inputs.keys()):
+            missing_keys = required_keys - inputs.keys()
+            raise ValueError(f"Lack keys: {missing_keys}")
+
+        text, ref_voice, save_path = inputs['text'], inputs['ref_voice'], inputs['save_path']
+
+        stream = inputs.get("stream", False)
 
         # process output_file_name
         if os.path.isfile(save_path) or '.' in os.path.basename(save_path):
@@ -1832,32 +1835,25 @@ class TTSHandler(BaseHandler):
                     waveform, sr = torchaudio.load(audio_bytes, format=config.get("response_format", "mp3"))
 
                     assert sr == config.get("sample_rate", 32000), "sample rate does not match"
-                    self._last_audio_array = waveform.numpy()
+                    self.audio_array = waveform.numpy().squeeze()
 
                 except Exception as e:
                     logger.error(f"Error decoding audio with torchaudio: {e}")
-                    self._last_audio_array = None
+                    self.audio_array = None
             else:
                 logger.info(f"error: status code {response.status_code}")
-                self._last_audio_array = None
+                self.audio_array = None
 
         if self.interruption_event.is_set() or self.cur_conn_end_event.is_set():
             logger.info("Stop TTS generation due to the current connection is end")
             self.working_event.clear()
             return None
 
-        thread = Thread(target=text2audio)
-        thread.start()
-        thread.join()
-
-        if self.interruption_event.is_set() or self.cur_conn_end_event.is_set():
-            logger.info("Stop TTS generation due to the current connection is end")
-            self.working_event.clear()
-            return None
+        text2audio()
 
         self.working_event.clear()
 
-        return self._last_audio_array
+        return self.audio_array
 
     def clear_current_state(self) -> None:
         """
@@ -1866,17 +1862,14 @@ class TTSHandler(BaseHandler):
         super().clear_current_state()
         self.ref_audio_cnt = 0
 
-        def delete_ref_audio():
-            headers = {"Authorization": f"Bearer {self.api_key}",
-                       "Content-Type": "application/json"}
-            ref_audio_list = self.list_reference()
-            for ref_audio in ref_audio_list:
-                payload = {"uri": ref_audio['uri']}
-                response = requests.request("POST", self.delete_ref_url, json=payload, headers=headers)
+        # delete ref audio
+        headers = {"Authorization": f"Bearer {self.api_key}",
+                    "Content-Type": "application/json"}
+        ref_audio_list = self.list_reference()
+        for ref_audio in ref_audio_list:
+            payload = {"uri": ref_audio['uri']}
+            response = requests.request("POST", self.delete_ref_url, json=payload, headers=headers)
         
-        delete_ref_audio()
-
-
 
 class ASRHandler(BaseHandler):
     """
@@ -1892,8 +1885,6 @@ class ASRHandler(BaseHandler):
             interruption_event: Event,
             model_name: str = "FunAudioLLM/SenseVoiceSmall",
             model_url: str = "https://api.siliconflow.cn/v1/audio/transcriptions",  
-            device: str = "cuda",
-            dtype: str = "float32",
     ) -> None:
         """
         Arguments:
@@ -1903,58 +1894,49 @@ class ASRHandler(BaseHandler):
             - queue_out (Queue): Output queue.
             - interruption_event (Event): Event used to trigger user interruption.
             - model_name (str): The name of the model to use. Such as 'CosyVoice-300M'.
-            - model_url(str): The base url of siliconflow api
-            - device (str): The device to use for TTS model.
-            - dtype (str): The data type to use for processing. Usually 'bfloat16' or 'float16' or 'float32'.
+            - model_url(str): The base url of siliconflow api.
         """
         super().__init__(stop_event, cur_conn_end_event, queue_in, queue_out)
         self.interruption_event = interruption_event
-        self.device = device
-        self.torch_dtype = getattr(torch, dtype)
         self.working_event = Event()
 
         self.model_name = model_name
         self.model_url = model_url
 
-        self.api_key = os.getenv("API_KEY")
+        self.api_key = os.getenv("ASR_TTS_API_KEY")
         if self.api_key is None:
-            raise ValueError("Environment variable 'API_KEY' is not set")
+            raise ValueError("Environment variable 'ASR_TTS_API_KEY' is not set")
 
 
-    def process(self, file_path):
+    def process(self, inputs: Dict[str, Union[str, int, bool, dict]]) -> str:
         while self.working_event.is_set():
             time.sleep(0.1)
         self.working_event.set()
 
-        def audio2text():
-            with open(file_path, "rb") as audio_file:
-                files = {
-                    "file": ("audio_file.wav", audio_file, "audio/wav"),
-                    "model": (None, self.model_name, "text/plain")
-                }
+        if "audio_file_path" not in inputs.keys():
+            raise ValueError("audio_file_path must be assigned")
 
-                headers = {
+        audio_file_path = inputs['audio_file_path']
+
+        with open(audio_file_path, 'rb') as audio_file:
+            files = {
+                "file": ("audio_file.wav", audio_file, "audio/wav"),
+                "model": (None, self.model_name, "text/plain")
+            }
+
+            headers = {
                 "Authorization": f"Bearer {self.api_key}"
-                }
-                
-                response = requests.post(self.model_url, files=files, headers=headers)
-                response = response.json()
-                return response['text']
+            }
+            
+            response = requests.post(self.model_url, files=files, headers=headers)
+            response = response.json()
 
         if self.interruption_event.is_set() or self.cur_conn_end_event.is_set():
             logger.info("Stop TTS generation due to the current connection is end")
 
-        response = audio2text()
-
         self.working_event.clear()
 
-        return response
-
-    def clear_current_state(self) -> None:
-        """
-        Clears the current state, restart/resets the reference audio and prompt (random choice from the reference list).
-        """
-        super().clear_current_state()
+        return response['text']
 
 
 def main(args) -> None:
