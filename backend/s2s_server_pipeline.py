@@ -1831,7 +1831,7 @@ class TTSHandler(BaseHandler):
                     audio_bytes = BytesIO(response.content)
                     waveform, sr = torchaudio.load(audio_bytes, format=config.get("response_format", "mp3"))
 
-                    # assert sr == sample_rate, "sample rate does not match"
+                    assert sr == config.get("sample_rate", 32000), "sample rate does not match"
                     self._last_audio_array = waveform.numpy()
 
                 except Exception as e:

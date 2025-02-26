@@ -30,7 +30,8 @@ def test_llm_api():
     }
     generator = lm.process(inputs)
     outputs = "".join([t["answer_text"] for t in generator])
-    print(f'end: {outputs}')
+    assert isinstance(outputs, str), "output type is wrong"
+    print(outputs)
 
 
 if __name__ == "__main__":

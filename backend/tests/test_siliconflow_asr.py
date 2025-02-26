@@ -21,6 +21,7 @@ def test_asr():
     file_path = os.path.join(PROJECT_ROOT, "backend/ref_audio/ref_wav/ref_audio_2.wav")
 
     response = model.process(file_path)
+    assert isinstance(response, str), "response type is wrong"
     print(response)
 
 if __name__ == "__main__":
