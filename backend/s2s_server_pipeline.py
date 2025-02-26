@@ -1718,10 +1718,10 @@ class TTSHandler(BaseHandler):
 
         self.ref_audio_cnt = 0
 
-        self.upload_url = os.path.join(self.model_url,"/uploads/audio/voice")
-        self.list_ref_url = os.path.join(self.model_url, "/audio/voice/list")
-        self.tts_url = os.path.join(self.model_url, "/audio/speech")
-        self.delete_ref_url = os.path.join(self.model_url, "/audio/voice/deletions")
+        self.upload_url = os.path.join(self.model_url,"uploads/audio/voice")
+        self.list_ref_url = os.path.join(self.model_url, "audio/voice/list")
+        self.tts_url = os.path.join(self.model_url, "audio/speech")
+        self.delete_ref_url = os.path.join(self.model_url, "audio/voice/deletions")
 
         wav_files = glob.glob(os.path.join(self.input_folder, "*.wav"))
 
