@@ -1690,6 +1690,7 @@ class TTSHandler(BaseHandler):
             ref_dir: str,
             model_name: str = "FunAudioLLM/CosyVoice2-0.5B",
             model_url: str = "https://api.siliconflow.cn/v1",  
+            **kwargs,
     ) -> None:
         """
         Arguments:
@@ -1699,7 +1700,7 @@ class TTSHandler(BaseHandler):
             - queue_out (Queue): Output queue.
             - interruption_event (Event): Event used to trigger user interruption.
             - ref_dir (str): The path to the reference directory containing the reference audio files (*.wav).
-            - model_name (str): The name of the model to use. Such as 'CosyVoice-300M'.
+            - model_name (str): The name of the model to use, such as 'CosyVoice-300M'.
             - model_url(str): The base url of siliconflow api
         """
         super().__init__(stop_event, cur_conn_end_event, queue_in, queue_out)
@@ -1718,8 +1719,8 @@ class TTSHandler(BaseHandler):
         self.ref_audio_cnt = 0
 
         self.upload_url = os.path.join(self.model_url,"/uploads/audio/voice")
-        self.list_ref_url = os.path.join(self.model_url + "/audio/voice/list")
-        self.tts_url = os.path.join(self.model_url + "/audio/speech")
+        self.list_ref_url = os.path.join(self.model_url, "/audio/voice/list")
+        self.tts_url = os.path.join(self.model_url, "/audio/speech")
         self.delete_ref_url = os.path.join(self.model_url, "/audio/voice/deletions")
 
         wav_files = glob.glob(os.path.join(self.input_folder, "*.wav"))

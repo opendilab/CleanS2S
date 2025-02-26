@@ -126,8 +126,6 @@ AI 对于对话行为本身应当具有一定的控制能力，有选择不回�
 
 >AI:是啊😄，今天的天气确实很好，适合出去散步或是和朋友一起玩😄。希望你能好好享受这一天！😄
 
-
-
 ## CI 使用指南
 
 ### 目的
@@ -139,10 +137,15 @@ AI 对于对话行为本身应当具有一定的控制能力，有选择不回�
 1. **触发条件**：每当有代码推送到 `main` 或 `dev` 分支，或者有 pull request 合并到 `main` 分支时，GitHub Actions 会自动启动。
 2. **运行步骤**：
    - 拉取最新的代码
-   - 设置 Python 环境,安装项目依赖
-   - 执行 API 的单元测试（ASR、LLM 和 TTS）
+   - 设置 Python 环境，安装项目依赖
+   - 执行 API 的单元测试，包括 ASR（自动语音识别）、LLM（大语言模型）和 TTS（文本转语音）
+   
+   - 当前TTS/ASR 使用的 API 地址为 [https://api.siliconflow.cn](https://api.siliconflow.cn)，模型名称为 **`FunAudioLLM/CosyVoice2-0.5B`**
+   - 当前LLM 使用的 API 地址为 [https://ark.cn-beijing.volces.com](https://ark.cn-beijing.volces.com)，模型名称为 **`deepseek-v3-241226`**
 
 ### 使用指南
 
 - 每次提交代码后，可以查看 GitHub Actions 页面，确认 CI 流程是否成功通过。如果测试失败，需要修复问题后重新提交。
+
+
 
