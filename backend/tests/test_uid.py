@@ -25,7 +25,7 @@ def worker_thread(thread_id, uid_manager, possible_uids, operation_count=100):
             ex = uid_manager._exists(uid)
         
         elif action == "update":
-            uid_manager._update_access_time(uid)
+            uid_manager._update_uid_info(uid)
         
         elif action == "leave":
             uid_manager._leave(uid)
@@ -34,7 +34,7 @@ def worker_thread(thread_id, uid_manager, possible_uids, operation_count=100):
         time.sleep(random.uniform(0, 0.01))
 
 def test_uid_manager_concurrent():
-    uid_manager = UidManager(max_uid_count=5, uid_timeout=3)
+    uid_manager = UidManager(max_uid_count=5, uid_timeout_second=3)
     
     # List of possible UIDs
     possible_uids = [f"user{i}" for i in range(10)]

@@ -1,15 +1,10 @@
 import time
 import threading
-import logging
+from loguru import logger
 
-logger = logging.getLogger(__name__)
-logger.setLevel(level=logging.INFO)
+logger.remove()
 
-console_handler = logging.StreamHandler()
-console_formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-console_handler.setFormatter(console_formatter)
-
-logger.addHandler(console_handler)
+logger.add("user_statistics.log", rotation="10 MB", retention="7 days", level="INFO")
 
 
 class UidManager:
@@ -43,12 +38,14 @@ class UidManager:
           - If under the limit, adds the UID and returns True.
         """
         with self._lock:
+            logger.info(f"User {uid} performed action: join")
+
             # Clean up expired UIDs before adding a new one
             self.__cleanup_expired_locked()
 
             # If UID already exists, update its access time
             if uid in self._uid_info:
-                self._uid_info[uid] = time.time()
+                self._uid_info[uid]['last_time'] = time.time()
                 return True
             else:
                 # Check if global UID limit is reached
@@ -73,7 +70,7 @@ class UidManager:
         with self._lock:
             return uid in self._uid_info
 
-    def _update_uid_info(self, uid: str, user_info: dict):
+    def _update_uid_info(self, uid: str, user_info: dict = dict()):
         """ 
         Updates the last access time of a UID.
         """
@@ -81,6 +78,8 @@ class UidManager:
             if uid in self._uid_info:
                 self._uid_info[uid].update(user_info)
                 self._uid_info[uid]['last_time'] = time.time()
+        
+        logger.info(f"User {uid} update uid info with {user_info}")
 
     def cleanup_expired(self):
         """
@@ -95,12 +94,13 @@ class UidManager:
         - This method should be called within a lock.
         """
         now = time.time()
-        expired = [uid for uid, last_access in self._uid_info.items() if now - last_access > self.uid_timeout_second]
+        expired = [uid for uid, info in self._uid_info.items() if now - info.get('last_time', 0) > self.uid_timeout_second]
 
         for uid in expired:
+            logger.info(f"User {uid} reaches the maximum expiration time and will be removed.")
             del self._uid_info[uid]
 
-    def process(self, uid: str, user_info: dict):
+    def process(self, uid: str, user_info: dict = dict()):
         """
         Arguments:
             -uid(str):
@@ -109,7 +109,8 @@ class UidManager:
 
         if not self._exists(uid):
             if not self._join(uid):
-                raise ValueError(f"UID {uid} reaches max count")
+                logger.info("UID {uid} reaches max count")
+                return RuntimeError(f"UID {uid} reaches max count")
 
         else:
             # if uid exists, update access time
