@@ -17,10 +17,9 @@ def test_tts():
         ref_dir="ref_audio",
     )
     text = "只用一个文件实现的流式全双工语音交互原型智能体！"
-    ref_voice = "FunAudioLLM/CosyVoice2-0.5B:alex"
-    save_path = "res"
+    uid = "test_uid"
 
-    inputs = {"text": text, "ref_voice": ref_voice, "save_path": save_path}
+    inputs = {"text": text, "uid": uid}
 
     audio_np = model.process(inputs)
 

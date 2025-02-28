@@ -1,6 +1,7 @@
 from threading import Event
 import os
 import sys
+import torchaudio
 
 from s2s_server_pipeline import ASRHandler
 
@@ -19,7 +20,9 @@ def test_asr():
     )
 
     file_path = os.path.join(PROJECT_ROOT, "backend/ref_audio/ref_wav/ref_audio_2.wav")
-    response = model.process({"audio_file_path": file_path})
+    data_wav, sample_rate = torchaudio.load(file_path)
+    data_wav = data_wav.numpy()
+    response = model.process({"data": data_wav, "sample_rate": sample_rate, "uid": "test_uid"})
     assert isinstance(response, str), "response type is wrong"
     print(response)
 

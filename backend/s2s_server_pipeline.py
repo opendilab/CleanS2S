@@ -15,6 +15,9 @@ from time import perf_counter
 import glob
 import requests
 from io import BytesIO
+from urllib.parse import urljoin
+import io
+import soundfile as sf
 
 import numpy as np
 import torch
@@ -28,21 +31,21 @@ from transformers import AutoModelForCausalLM, AutoTokenizer, pipeline, TextIter
 from funasr import AutoModel
 # TTS
 import torchaudio
-# try:
-#     from cosyvoice.utils.file_utils import load_wav
-#     from cosyvoice.cli.cosyvoice import CosyVoice
-# except ImportError as e:
-#     print(f"Failed to import CosyVoice modules. Please ensure cosyvoice is installed (pip install cosyvoice). Error: {e}")
-#     load_wav = None
-#     CosyVoice = None
+try:
+    from cosyvoice.utils.file_utils import load_wav
+    from cosyvoice.cli.cosyvoice import CosyVoice
+except ImportError as e:
+    print(f"Failed to import CosyVoice modules. Please ensure cosyvoice is installed (pip install cosyvoice). Error: {e}")
+    load_wav = None
+    CosyVoice = None
 
 # Ensure that the necessary NLTK resources are available
-# try:
-#     nltk.data.find('tokenizers/punkt_tab')
-#     nltk.data.find('averaged_perceptron_tagger_eng')
-# except LookupError:
-#     nltk.download('punkt_tab')
-#     nltk.download('averaged_perceptron_tagger_eng')
+try:
+    nltk.data.find('tokenizers/punkt_tab')
+    nltk.data.find('averaged_perceptron_tagger_eng')
+except LookupError:
+    nltk.download('punkt_tab')
+    nltk.download('averaged_perceptron_tagger_eng')
 
 # caching allows ~50% compilation time reduction
 # see https://docs.google.com/document/d/1y5CRfMLdwEoF1nTk9q8qEu1mgMUuUtvhklPKJ2emLU8/edit#heading=h.o2asbxsrp1ma
@@ -1718,10 +1721,14 @@ class TTSHandler(BaseHandler):
 
         self.ref_audio_cnt = 0
 
-        self.upload_url = os.path.join(self.model_url,"uploads/audio/voice")
-        self.list_ref_url = os.path.join(self.model_url, "audio/voice/list")
-        self.tts_url = os.path.join(self.model_url, "audio/speech")
-        self.delete_ref_url = os.path.join(self.model_url, "audio/voice/deletions")
+        if not self.model_url.endswith('/'):
+            self.model_url += '/'
+
+        self.upload_url = urljoin(self.model_url,"uploads/audio/voice")
+        self.list_ref_url = urljoin(self.model_url, "audio/voice/list")
+        print(self.list_ref_url)
+        self.tts_url = urljoin(self.model_url, "audio/speech")
+        self.delete_ref_url = urljoin(self.model_url, "audio/voice/deletions")
 
         wav_files = glob.glob(os.path.join(self.input_folder, "*.wav"))
 
@@ -1740,6 +1747,7 @@ class TTSHandler(BaseHandler):
         logger.info("All reference audio uri are listed below:")
         for ref_audio in ref_audio_list:
             logger.info(ref_audio['uri'])
+        self.ref = random.choice(ref_audio_list)['uri']
 
     def upload_reference_audio(self, reference_audio:Tuple[str,str]) -> Dict[str,str]:
         """upload reference audio to siliconflow api
@@ -1769,8 +1777,13 @@ class TTSHandler(BaseHandler):
         """
         headers = {"Authorization": f"Bearer {self.api_key}"}
         response = requests.request("GET", self.list_ref_url, headers=headers)
-        response = response.json()
-        return response['result']
+        if response.status_code == 200:
+            response = response.json()
+            return response['result']
+        else:
+            logger.info(f"error: status code {response.status_code}")
+            raise RuntimeError(f"error: status code {response.status_code}")
+
         
     def process(self, inputs: Dict[str, Union[str, int, bool, dict]], config: Dict[str, Union[str, int, bool, dict]] = dict()) -> np.ndarray:
         """transform text to speech, now text is str not list
@@ -1778,8 +1791,7 @@ class TTSHandler(BaseHandler):
         Args:
             inputs(Dict):
                 'text' (str): User input text to be transformed
-                'ref_voice' (str): The uri of the reference voice to be applied on the text
-                'save_path' (str): The save path of the output audio path
+                'uid' (str): The uid of the user
                 'stream' (bool, optional): whether the output is in stream format. Defaults to False. Not supported now.
             config (Dict[str, Union[str, int, bool, dict]], optional): configuration of the TTS model including response_format(default "mp3"), sample_rate(default 32000), speed(default 1) and gain(default 0). Defaults to None.
         """
@@ -1787,31 +1799,20 @@ class TTSHandler(BaseHandler):
             time.sleep(0.1)
         self.working_event.set()
 
-        required_keys = {"text", "ref_voice", "save_path"}
+        required_keys = {"text", "uid"}
         if not required_keys.issubset(inputs.keys()):
             missing_keys = required_keys - inputs.keys()
             raise ValueError(f"Lack keys: {missing_keys}")
 
-        text, ref_voice, save_path = inputs['text'], inputs['ref_voice'], inputs['save_path']
+        text, uid = inputs['text'], inputs['uid']
 
         stream = inputs.get("stream", False)
-
-        # process output_file_name
-        if os.path.isfile(save_path) or '.' in os.path.basename(save_path):
-            file_path = save_path
-        else:
-            os.makedirs(save_path, exist_ok=True)
-    
-            file_name = f"{text[:5] if len(text) >= 5 else text}.{config.get('response_format', 'mp3')}"
-            file_name = "".join(c for c in file_name if c.isalnum() or c in (' ', '.', '_')).rstrip()
-            
-            file_path = os.path.join(save_path, file_name)
 
         def text2audio() :
             payload= {
                 "model": self.model_name,
                 "input": text,
-                "voice": ref_voice, # FunAudioLLM/CosyVoice2-0.5B:benjamin
+                "voice": self.ref, # FunAudioLLM/CosyVoice2-0.5B:benjamin
                 "response_format": config.get("response_format", "mp3"),
                 "sample_rate": config.get("sample_rate", 32000),
                 "stream": stream,
@@ -1827,10 +1828,6 @@ class TTSHandler(BaseHandler):
             response = requests.request("POST", self.tts_url, json=payload, headers=headers)
 
             if response.status_code == 200:
-                with open(file_path,'wb')as file:
-                    file.write(response.content)
-                logger.info(f"file saved at {file_path}")
-
                 try:
                     audio_bytes = BytesIO(response.content)
                     waveform, sr = torchaudio.load(audio_bytes, format=config.get("response_format", "mp3"))
@@ -1910,30 +1907,38 @@ class ASRHandler(BaseHandler):
 
 
     def process(self, inputs: Dict[str, Union[str, int, bool, dict]]) -> str:
+        """
+        """
         while self.working_event.is_set():
             time.sleep(0.1)
         self.working_event.set()
 
-        if "audio_file_path" not in inputs.keys():
-            raise ValueError("audio_file_path must be assigned")
+        if "data" not in inputs or "uid" not in inputs:
+            raise ValueError("inputs must include 'data'(numpy array) and uid")
+        
 
-        audio_file_path = inputs['audio_file_path']
 
-        with open(audio_file_path, 'rb') as audio_file:
-            files = {
-                "file": ("audio_file.wav", audio_file, "audio/wav"),
-                "model": (None, self.model_name, "text/plain")
-            }
+        data_wav, uid = inputs['data'], inputs['uid']
+        sample_rate = inputs.get("sample_rate", 32000)
 
-            headers = {
-                "Authorization": f"Bearer {self.api_key}"
-            }
+        wav_buffer = io.BytesIO()
+        sf.write(wav_buffer, data_wav.T, sample_rate, format='WAV')
+        wav_buffer.seek(0)
+
+        files = {
+            "file": ("audio_file.wav", wav_buffer, "audio/wav"),
+            "model": (None, self.model_name, "text/plain")
+        }
+
+        headers = {
+            "Authorization": f"Bearer {self.api_key}"
+        }
             
-            response = requests.post(self.model_url, files=files, headers=headers)
-            response = response.json()
+        response = requests.post(self.model_url, files=files, headers=headers)
+        response = response.json()
 
         if self.interruption_event.is_set() or self.cur_conn_end_event.is_set():
-            logger.info("Stop TTS generation due to the current connection is end")
+            logger.info("Stop ASR generation due to the current connection is end")
 
         self.working_event.clear()
 
