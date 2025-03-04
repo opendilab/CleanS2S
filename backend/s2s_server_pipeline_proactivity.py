@@ -13,6 +13,7 @@ from FlagEmbedding import FlagAutoModel
 from transformers import AutoModel
 from datasets import load_dataset
 from enum import Enum
+import requests
 # Configure logger
 
 logger = logging.getLogger(__name__)
