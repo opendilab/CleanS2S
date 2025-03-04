@@ -1,14 +1,13 @@
 from threading import Event
-import os
-import sys
 
-from s2s_server_pipeline import TTSHandler
+from s2s_server_pipeline import TTSAPIHandler
+
 
 def test_tts():
     stop_event = Event()
     interruption_event = Event()
     cur_conn_end_event = Event()
-    model = TTSHandler(
+    model = TTSAPIHandler(
         stop_event,
         cur_conn_end_event,
         0,

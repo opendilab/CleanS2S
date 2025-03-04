@@ -26,7 +26,5 @@ def shift_pitch(audio, sampling_rate, n_steps: int):
     """
     Shift the pitch of an audio file by a given number of steps.
     """
-    audio_shifted = librosa.effects.pitch_shift(
-        audio, sr=sampling_rate, n_steps=n_steps
-    )
+    audio_shifted = librosa.effects.pitch_shift(audio, sr=sampling_rate, n_steps=n_steps)
     return audio_shifted

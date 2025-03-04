@@ -1,6 +1,4 @@
 from threading import Event
-import os
-import sys
 
 from s2s_server_pipeline import LanguageModelAPIHandler
 
@@ -9,8 +7,8 @@ def test_llm_api():
     stop_event = Event()
     interruption_event = Event()
     cur_conn_end_event = Event()
-    model_name = "deepseek-v3-241226"
-    model_url = "https://ark.cn-beijing.volces.com/api/v3"
+    model_name = "deepseek-chat"
+    model_url = "https://api.deepseek.com"
 
     lm = LanguageModelAPIHandler(
         stop_event,

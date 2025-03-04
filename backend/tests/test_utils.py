@@ -2,7 +2,6 @@ import os
 import librosa
 import sys
 
-import numpy as np
 
 sys.path.append("..")
 from utils import adjust_volume, change_speed, shift_pitch
@@ -10,39 +9,27 @@ from utils import adjust_volume, change_speed, shift_pitch
 if __name__ == "__main__":
 
     def test_adjust_volume():
-        if not os.path.exists(
-            os.path.join(os.path.dirname(__file__), "../ref_audio/ref_wav/test")
-        ):
-            os.makedirs(
-                os.path.join(os.path.dirname(__file__), "../ref_audio/ref_wav/test")
-            )
-        input_path = os.path.join(
-            os.path.dirname(__file__), "../ref_audio/ref_wav/ref_audio_default.wav"
-        )
+        if not os.path.exists(os.path.join(os.path.dirname(__file__), "../ref_audio/ref_wav/test")):
+            os.makedirs(os.path.join(os.path.dirname(__file__), "../ref_audio/ref_wav/test"))
+        input_path = os.path.join(os.path.dirname(__file__), "../ref_audio/ref_wav/ref_audio_default.wav")
 
         audio, sample_rate = librosa.load(input_path)
         audio_1 = adjust_volume(audio, volume_factor=0.5)
         audio_2 = adjust_volume(audio, volume_factor=2.0)
 
         # compute power of the waveform
-        power = (audio**2).sum().item()
-        power_1 = (audio_1**2).sum().item()
-        power_2 = (audio_2**2).sum().item()
+        power = (audio ** 2).sum().item()
+        power_1 = (audio_1 ** 2).sum().item()
+        power_2 = (audio_2 ** 2).sum().item()
 
         # check if the power has been adjusted
         assert power_1 < power
         assert power_2 > power
 
     def test_change_speed():
-        if not os.path.exists(
-            os.path.join(os.path.dirname(__file__), "../ref_audio/ref_wav/test")
-        ):
-            os.makedirs(
-                os.path.join(os.path.dirname(__file__), "../ref_audio/ref_wav/test")
-            )
-        input_path = os.path.join(
-            os.path.dirname(__file__), "../ref_audio/ref_wav/ref_audio_default.wav"
-        )
+        if not os.path.exists(os.path.join(os.path.dirname(__file__), "../ref_audio/ref_wav/test")):
+            os.makedirs(os.path.join(os.path.dirname(__file__), "../ref_audio/ref_wav/test"))
+        input_path = os.path.join(os.path.dirname(__file__), "../ref_audio/ref_wav/ref_audio_default.wav")
 
         audio, sample_rate = librosa.load(input_path)
         audio_1 = change_speed(audio, speed=0.5)
@@ -53,15 +40,9 @@ if __name__ == "__main__":
         assert len(audio_2) < len(audio)
 
     def test_shift_pitch():
-        if not os.path.exists(
-            os.path.join(os.path.dirname(__file__), "../ref_audio/ref_wav/test")
-        ):
-            os.makedirs(
-                os.path.join(os.path.dirname(__file__), "../ref_audio/ref_wav/test")
-            )
-        input_path = os.path.join(
-            os.path.dirname(__file__), "../ref_audio/ref_wav/ref_audio_default.wav"
-        )
+        if not os.path.exists(os.path.join(os.path.dirname(__file__), "../ref_audio/ref_wav/test")):
+            os.makedirs(os.path.join(os.path.dirname(__file__), "../ref_audio/ref_wav/test"))
+        input_path = os.path.join(os.path.dirname(__file__), "../ref_audio/ref_wav/ref_audio_default.wav")
 
         n_steps = [-12, -6, 0, 6, 12]
         audio, sample_rate = librosa.load(input_path)

@@ -1,23 +1,22 @@
 from typing import Dict, List, Optional, Union, Any, Tuple
 from abc import ABC, abstractmethod
 from datetime import datetime
+from queue import Queue, Empty
+from threading import Event, Thread
+from time import perf_counter
+from io import BytesIO
+from urllib.parse import urljoin
 import logging
 import os
 import re
+import io
 import json
 import base64
 import random
 import time
 import threading
-from queue import Queue, Empty
-from threading import Event, Thread
-from time import perf_counter
 import glob
 import requests
-from io import BytesIO
-from urllib.parse import urljoin
-import io
-import soundfile as sf
 
 import numpy as np
 import torch
@@ -35,7 +34,9 @@ try:
     from cosyvoice.utils.file_utils import load_wav
     from cosyvoice.cli.cosyvoice import CosyVoice
 except ImportError as e:
-    print(f"Failed to import CosyVoice modules. Please ensure cosyvoice is installed (pip install cosyvoice). Error: {e}")
+    print(
+        f"Failed to import CosyVoice modules. Please ensure cosyvoice is installed (pip install cosyvoice). Error: {e}"
+    )
     load_wav = None
     CosyVoice = None
 
@@ -1677,10 +1678,9 @@ class CosyVoiceTTSHandler(BaseHandler):
         self.ref = random.choice(self.ref_list)
 
 
-
-class TTSHandler(BaseHandler):
+class TTSAPIHandler(BaseHandler):
     """
-    Handlers for text-to-speech (TTS) conversion, based on https://docs.siliconflow.cn/cn/api-reference/audio
+    Handlers for text-to-speech (TTS) conversion with API service, based on https://docs.siliconflow.cn/cn/api-reference/audio.
     """
 
     def __init__(
@@ -1692,8 +1692,8 @@ class TTSHandler(BaseHandler):
             interruption_event: Event,
             ref_dir: str,
             model_name: str = "FunAudioLLM/CosyVoice2-0.5B",
-            model_url: str = "https://api.siliconflow.cn/v1",  
-            **kwargs,
+            model_url: str = "https://api.siliconflow.cn/v1",
+            **kwargs,  # for compatibility with other TTS handlers
     ) -> None:
         """
         Arguments:
@@ -1703,8 +1703,8 @@ class TTSHandler(BaseHandler):
             - queue_out (Queue): Output queue.
             - interruption_event (Event): Event used to trigger user interruption.
             - ref_dir (str): The path to the reference directory containing the reference audio files (*.wav).
-            - model_name (str): The name of the model to use, such as 'CosyVoice-300M'.
-            - model_url(str): The base url of siliconflow api
+            - model_name (str): The name of the model to use, such as 'FunAudioLLM/CosyVoice2-0.5B'.
+            - model_url(str): The base url of api service., such as 'https://api.siliconflow.cn/v1'
         """
         super().__init__(stop_event, cur_conn_end_event, queue_in, queue_out)
         self.interruption_event = interruption_event
@@ -1724,9 +1724,8 @@ class TTSHandler(BaseHandler):
         if not self.model_url.endswith('/'):
             self.model_url += '/'
 
-        self.upload_url = urljoin(self.model_url,"uploads/audio/voice")
+        self.upload_url = urljoin(self.model_url, "uploads/audio/voice")
         self.list_ref_url = urljoin(self.model_url, "audio/voice/list")
-        print(self.list_ref_url)
         self.tts_url = urljoin(self.model_url, "audio/speech")
         self.delete_ref_url = urljoin(self.model_url, "audio/voice/deletions")
 
@@ -1749,17 +1748,19 @@ class TTSHandler(BaseHandler):
             logger.info(ref_audio['uri'])
         self.ref = random.choice(ref_audio_list)['uri']
 
-    def upload_reference_audio(self, reference_audio:Tuple[str,str]) -> Dict[str,str]:
-        """upload reference audio to siliconflow api
-
-        Args:
-            reference_audio (Tuple[str,str]): The first element is the absolute path of the reference audio file, and the second element is the corresponding text of the reference audio.
+    def upload_reference_audio(self, reference_audio: Tuple[str, str]) -> Dict[str, str]:
+        """
+        Overview:
+            Upload reference audio to siliconflow api service.
+        Arguments:
+            - reference_audio (Tuple[str, str]): The first element is the absolute path of the reference audio file, \
+                and the second element is the corresponding text of the reference audio.
 
         Returns:
-            Dict[str,str]: the uri of the reference audio file like {'uri': 'speech:hus-test-2435767:ng9rdjx3ph:yuensltrtyfzysrktlsp'}
+            - result (Dict[str, str]): The uri of the reference audio file like {'uri': 'speech:hus-test-xxx:xxx'}
         """
         headers = {"Authorization": f"Bearer {self.api_key}"}
-        audio_file = {"file":open(reference_audio[0],"rb")}
+        audio_file = {"file": open(reference_audio[0], "rb")}
         data = {
             "model": self.model_name,
             "customName": f"ref_audio_{reference_audio[0]}_{self.ref_audio_cnt}",
@@ -1767,13 +1768,15 @@ class TTSHandler(BaseHandler):
         }
         self.ref_audio_cnt += 1
         response = requests.post(self.upload_url, headers=headers, files=audio_file, data=data)
-        return response.json() 
-    
-    def list_reference(self) -> List[Dict[str,str]]:
-        """list all the uploaded reference audio file
+        return response.json()
+
+    def list_reference(self) -> List[Dict[str, str]]:
+        """
+        Overview:
+            List all the uploaded reference audio files.
 
         Returns:
-        List[Dict[str,str]]: all the uploaded reference audio with its model, customName, text and uri
+            - result (List[Dict[str, str]]): All the uploaded reference audio with its model, customName, text and uri.
         """
         headers = {"Authorization": f"Bearer {self.api_key}"}
         response = requests.request("GET", self.list_ref_url, headers=headers)
@@ -1784,16 +1787,24 @@ class TTSHandler(BaseHandler):
             logger.info(f"error: status code {response.status_code}")
             raise RuntimeError(f"error: status code {response.status_code}")
 
-        
-    def process(self, inputs: Dict[str, Union[str, int, bool, dict]], config: Dict[str, Union[str, int, bool, dict]] = dict()) -> np.ndarray:
-        """transform text to speech, now text is str not list
+    def process(
+        self, inputs: Dict[str, Union[str, int, bool, dict]], config: Dict[str, Union[str, int, bool, dict]] = dict()
+    ) -> np.ndarray:
+        """
+        Overview:
+            Transform text to speech, now text is str not list.
 
-        Args:
-            inputs(Dict):
-                'text' (str): User input text to be transformed
-                'uid' (str): The uid of the user
-                'stream' (bool, optional): whether the output is in stream format. Defaults to False. Not supported now.
-            config (Dict[str, Union[str, int, bool, dict]], optional): configuration of the TTS model including response_format(default "mp3"), sample_rate(default 32000), speed(default 1) and gain(default 0). Defaults to None.
+        Arguments:
+            - inputs (Dict):
+                - 'text' (str): User input text to be transformed
+                - 'uid' (str): The uid of the user
+                - 'stream' (bool, optional): whether the output is in stream format. Defaults to False. Not supported now.
+            - config (Dict[str, Union[str, int, bool, dict]], optional): configuration of the TTS model including \
+                response_format (default "mp3"), sample_rate (default 32000), speed(default 1) and gain(default 0). \
+                Defaults to None.
+
+        Returns:
+            - result (np.ndarray): The audio array of the transformed text.
         """
         while self.working_event.is_set():
             time.sleep(0.1)
@@ -1808,11 +1819,11 @@ class TTSHandler(BaseHandler):
 
         stream = inputs.get("stream", False)
 
-        def text2audio() :
-            payload= {
+        def text2audio():
+            payload = {
                 "model": self.model_name,
                 "input": text,
-                "voice": self.ref, # FunAudioLLM/CosyVoice2-0.5B:benjamin
+                "voice": self.ref,  # FunAudioLLM/CosyVoice2-0.5B:benjamin
                 "response_format": config.get("response_format", "mp3"),
                 "sample_rate": config.get("sample_rate", 32000),
                 "stream": stream,
@@ -1820,11 +1831,8 @@ class TTSHandler(BaseHandler):
                 "gain": config.get("gain", 0)
             }
 
-            headers = {
-            "Authorization": f"Bearer {self.api_key}",
-            "Content-Type": "application/json"
-            }
-            
+            headers = {"Authorization": f"Bearer {self.api_key}", "Content-Type": "application/json"}
+
             response = requests.request("POST", self.tts_url, json=payload, headers=headers)
 
             if response.status_code == 200:
@@ -1861,17 +1869,16 @@ class TTSHandler(BaseHandler):
         self.ref_audio_cnt = 0
 
         # delete ref audio
-        headers = {"Authorization": f"Bearer {self.api_key}",
-                    "Content-Type": "application/json"}
+        headers = {"Authorization": f"Bearer {self.api_key}", "Content-Type": "application/json"}
         ref_audio_list = self.list_reference()
         for ref_audio in ref_audio_list:
             payload = {"uri": ref_audio['uri']}
             response = requests.request("POST", self.delete_ref_url, json=payload, headers=headers)
-        
 
-class ASRHandler(BaseHandler):
+
+class ASRAPIHandler(BaseHandler):
     """
-    Handlers for text-to-speech (TTS) conversion, based on https://docs.siliconflow.cn/cn/api-reference/audio
+    Handlers for automatic speech recognition (ASR) conversion with API service, based on https://docs.siliconflow.cn/cn/api-reference/audio.
     """
 
     def __init__(
@@ -1882,7 +1889,7 @@ class ASRHandler(BaseHandler):
             queue_out: Queue,
             interruption_event: Event,
             model_name: str = "FunAudioLLM/SenseVoiceSmall",
-            model_url: str = "https://api.siliconflow.cn/v1/audio/transcriptions",  
+            model_url: str = "https://api.siliconflow.cn/v1/audio/transcriptions",
     ) -> None:
         """
         Arguments:
@@ -1891,8 +1898,8 @@ class ASRHandler(BaseHandler):
             - queue_in (Queue): Input queue.
             - queue_out (Queue): Output queue.
             - interruption_event (Event): Event used to trigger user interruption.
-            - model_name (str): The name of the model to use. Such as 'CosyVoice-300M'.
-            - model_url(str): The base url of siliconflow api.
+            - model_name (str): The name of the model to use. Such as 'FunAudioLLM/SenseVoiceSmall'.
+            - model_url(str): The base url of api service., such as 'https://api.siliconflow.cn/v1/audio/transcriptions'
         """
         super().__init__(stop_event, cur_conn_end_event, queue_in, queue_out)
         self.interruption_event = interruption_event
@@ -1905,9 +1912,18 @@ class ASRHandler(BaseHandler):
         if self.api_key is None:
             raise ValueError("Environment variable 'ASR_TTS_API_KEY' is not set")
 
-
     def process(self, inputs: Dict[str, Union[str, int, bool, dict]]) -> str:
         """
+        Overview:
+            Transform audio to text, now data is numpy array not str.
+
+        Arguments:
+            - inputs (Dict):
+                - 'data' (numpy.ndarray): The audio data to be transformed
+                - 'uid' (str): The uid of the user
+
+        Returns:
+            - result (str): The text of the transformed audio.
         """
         while self.working_event.is_set():
             time.sleep(0.1)
@@ -1915,25 +1931,19 @@ class ASRHandler(BaseHandler):
 
         if "data" not in inputs or "uid" not in inputs:
             raise ValueError("inputs must include 'data'(numpy array) and uid")
-        
-
 
         data_wav, uid = inputs['data'], inputs['uid']
         sample_rate = inputs.get("sample_rate", 32000)
 
         wav_buffer = io.BytesIO()
-        sf.write(wav_buffer, data_wav.T, sample_rate, format='WAV')
+        audio_tensor = torch.tensor(data_wav)
+        torchaudio.save(wav_buffer, audio_tensor, sample_rate, format='wav')
         wav_buffer.seek(0)
 
-        files = {
-            "file": ("audio_file.wav", wav_buffer, "audio/wav"),
-            "model": (None, self.model_name, "text/plain")
-        }
+        files = {"file": ("audio_file.wav", wav_buffer, "audio/wav"), "model": (None, self.model_name, "text/plain")}
 
-        headers = {
-            "Authorization": f"Bearer {self.api_key}"
-        }
-            
+        headers = {"Authorization": f"Bearer {self.api_key}"}
+
         response = requests.post(self.model_url, files=files, headers=headers)
         response = response.json()
 

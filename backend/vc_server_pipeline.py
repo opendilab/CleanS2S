@@ -54,6 +54,7 @@ console = Console()
 global pipeline_start
 pipeline_start = None
 
+
 def get_readable_time(timestamp: float) -> str:
     dt_object = datetime.fromtimestamp(timestamp)
     milliseconds = dt_object.microsecond // 1000
@@ -443,7 +444,13 @@ class SocketVADReceiver:
                             vad_result = self.vad(data)
                             if vad_result is not None:
                                 self.user_input_count += 1
-                                self.queue_out.put({"data": vad_result, "user_input_count": self.user_input_count, "uid": uid})
+                                self.queue_out.put(
+                                    {
+                                        "data": vad_result,
+                                        "user_input_count": self.user_input_count,
+                                        "uid": uid
+                                    }
+                                )
                                 await ws.send(json.dumps({"return_info": "VAD detected"}))
                                 vad = True
                     if not vad:
@@ -745,9 +752,7 @@ class ParaFormerSTTHandler(BaseHandler):
         end_event.record()
         torch.cuda.synchronize()
 
-        logger.info(
-            f"{self.__class__.__name__}:  warmed up! time: {start_event.elapsed_time(end_event) * 1e-3:.3f} s"
-        )
+        logger.info(f"{self.__class__.__name__}:  warmed up! time: {start_event.elapsed_time(end_event) * 1e-3:.3f} s")
 
     def process(self, inputs: Dict[str, Union[np.ndarray, str, int]]) -> Dict[str, Union[str, int, bool]]:
         """
@@ -764,16 +769,26 @@ class ParaFormerSTTHandler(BaseHandler):
 
         global pipeline_start
         pipeline_start = perf_counter()
-        
+
         # user directly send text question
         if isinstance(spoken_prompt, str):
             console.print(f"[yellow]{time.ctime()}\tUSER: {spoken_prompt}")
             if self.save_data:
                 save_fn(
-                    f'vc_data/{uid}_{user_input_count}_input.json',
-                    {"audio": None, "text": spoken_prompt, "audio_input": False, "time": time.ctime()}
+                    f'vc_data/{uid}_{user_input_count}_input.json', {
+                        "audio": None,
+                        "text": spoken_prompt,
+                        "audio_input": False,
+                        "time": time.ctime()
+                    }
                 )
-            yield {"audio": None, "text": spoken_prompt, "user_input_count": user_input_count, "uid": uid, "audio_input": False}
+            yield {
+                "audio": None,
+                "text": spoken_prompt,
+                "user_input_count": user_input_count,
+                "uid": uid,
+                "audio_input": False
+            }
         else:
             res = self.model.generate(input=spoken_prompt, batch_size_s=300, batch_size_threshold_s=60)
             try:
@@ -789,11 +804,21 @@ class ParaFormerSTTHandler(BaseHandler):
             console.print(f"[yellow]{time.ctime()}\tUSER: {pred_text}")
             if self.save_data:
                 save_fn(
-                    f'vc_data/{uid}_{user_input_count}_input.json',
-                    {"audio": spoken_prompt, "text": pred_text, "audio_input": True, "time": time.ctime()}
+                    f'vc_data/{uid}_{user_input_count}_input.json', {
+                        "audio": spoken_prompt,
+                        "text": pred_text,
+                        "audio_input": True,
+                        "time": time.ctime()
+                    }
                 )
 
-            yield {"audio": spoken_prompt, "text": pred_text, "user_input_count": user_input_count, "uid": uid, "audio_input": True}
+            yield {
+                "audio": spoken_prompt,
+                "text": pred_text,
+                "user_input_count": user_input_count,
+                "uid": uid,
+                "audio_input": True
+            }
 
 
 class CosyVoiceTTSHandler(BaseHandler):
@@ -930,7 +955,7 @@ class CosyVoiceTTSHandler(BaseHandler):
         source_speech_16k = inputs["audio"]
         if source_speech_16k is not None:
             if len(source_speech_16k.shape) == 1:
-                source_speech_16k = source_speech_16k[np.newaxis, ...] 
+                source_speech_16k = source_speech_16k[np.newaxis, ...]
             gen_kwargs = dict(
                 source_speech_16k=source_speech_16k,
                 prompt_speech_16k=prompt_speech_16k,
@@ -993,13 +1018,20 @@ class CosyVoiceTTSHandler(BaseHandler):
             end_flag = True
             if self.save_data:
                 save_fn(
-                    f"vc_data/{uid}_{inputs['user_input_count']}_output.json",
-                    {"audio": np.concatenate(chunks, axis=0), "text": inputs['text'], "time": time.ctime()}
+                    f"vc_data/{uid}_{inputs['user_input_count']}_output.json", {
+                        "audio": np.concatenate(chunks, axis=0),
+                        "text": inputs['text'],
+                        "time": time.ctime()
+                    }
                 )
             if i == 0:
                 if pipeline_start is not None:
-                    logger.info(f"[green]{time.ctime()}\tTime to first user audio input: {perf_counter() - pipeline_start:.3f}")
-                    console.print(f"[green]{time.ctime()}\tTime to first user audio input: {perf_counter() - pipeline_start:.3f}")
+                    logger.info(
+                        f"[green]{time.ctime()}\tTime to first user audio input: {perf_counter() - pipeline_start:.3f}"
+                    )
+                    console.print(
+                        f"[green]{time.ctime()}\tTime to first user audio input: {perf_counter() - pipeline_start:.3f}"
+                    )
                 yield {
                     'question_text': None,
                     'answer_text': text_sentence,
