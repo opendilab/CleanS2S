@@ -25,7 +25,8 @@ def worker_thread(thread_id, uid_manager, possible_uids, operation_count=100):
             ex = uid_manager._exists(uid)
         
         elif action == "update":
-            uid_manager._update_uid_info(uid)
+            test_user_info = {"name": "Alice", "email": "alice@example.com"}
+            uid_manager._update_uid_info(uid, test_user_info)
         
         elif action == "leave":
             uid_manager._leave(uid)
@@ -64,7 +65,6 @@ def test_uid_manager_concurrent():
 
     assert len(current_uids) <= uid_manager.max_uid_count, "UID count exceeded the limit!"
 
-    print("All tests passed")
 
 if __name__ == "__main__":
     test_uid_manager_concurrent()

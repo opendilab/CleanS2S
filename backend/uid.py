@@ -18,8 +18,8 @@ class UidManager:
 
     def __init__(self, max_uid_count=100, uid_timeout_second=3600):
         """
-        :max_uid_count: Maximum number of active UIDs allowed in the system.
-        :uid_timeout:   UID expiration time (in seconds); if not accessed within this time, the UID is removed.
+        - max_uid_count: Maximum number of active UIDs allowed in the system.
+        - uid_timeout: UID expiration time (in seconds); if not accessed within this time, the UID is removed.
         """
         self.max_uid_count = max_uid_count
         self.uid_timeout_second = uid_timeout_second
@@ -103,8 +103,8 @@ class UidManager:
     def process(self, uid: str, user_info: dict = dict()):
         """
         Arguments:
-            -uid(str):
-            -user_info(dict, optional):
+            - uid(str): user id
+            - user_info(dict, optional): user information as a dict
         """
 
         if not self._exists(uid):
