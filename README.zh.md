@@ -277,9 +277,9 @@ pnpm dev --port 3001
 - [x] 换声 (Voice Conversion) pipeline 支持（ASR + TTS）(即backend/vc_server_pipeline.py)
 - [x] WebUI 优化（支持更多样的交互和功能）
 - [ ] 推理速度优化
-- [ ] 后端多用户支持
-- [ ] 对话中的长期记忆和主动意图机制
-- [ ] 表情包等非文本交机制
+- [x] 后端多用户支持
+- [x] 对话中的长期记忆和主动意图机制
+- [x] 表情包等非文本交互机制
 - [x] 更多提示词和 RAG 策略 (serper + jina + LightRAG)
 - [ ] 真实场景下的实用的声纹检测机制
 - [ ] 更多示例和评估工具
@@ -304,7 +304,7 @@ pnpm dev --port 3001
 ```latex
 @misc{CleanS2S,
     title={CleanS2S: High-quality and streaming Speech-to-Speech interactive agent in a single file},
-    author={Niu, Yazhe and Hu, Shuai and Chen, Yun and Wang, Haolin},
+    author={Niu, Yazhe and Hu, Shuai and Wang, Haolin and Lu, Yudong and Ma, Runmin and Chen, Yun},
     publisher={GitHub},
     howpublished={\url{https://github.com/opendilab/CleanS2S}},
     year={2024},

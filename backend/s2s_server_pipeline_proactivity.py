@@ -1,18 +1,19 @@
 from typing import Dict, List, Optional, Union, Any
+from enum import Enum
 import json
 import time
 import os
 import re
 import logging
-from openai import OpenAI
-from s2s_server_pipeline import LanguageModelAPIHandler
+import requests
 import torch
+from openai import OpenAI
 from sklearn.metrics.pairwise import cosine_similarity
 from promcse import PromCSE
 from FlagEmbedding import FlagAutoModel
 from transformers import AutoModel
 from datasets import load_dataset
-from enum import Enum
+from s2s_server_pipeline import LanguageModelAPIHandler
 # Configure logger
 
 logger = logging.getLogger(__name__)
@@ -222,8 +223,8 @@ class Proactivity:
             if len(rank) != 0:
                 tscore = sum(
                     [
-                        (0.6 * simlist[i + simindex] + 0.4 * simlist[i + simindex + 1]) * ((max_rank - rank[i]) / max_rank)
-                        for i in range(len(rank))
+                        (0.6 * simlist[i + simindex] + 0.4 * simlist[i + simindex + 1]) *
+                        ((max_rank - rank[i]) / max_rank) for i in range(len(rank))
                     ]
                 ) / (len(rank) ** 0.5)
                 simindex += 2 * len(rank)
@@ -251,9 +252,7 @@ class Proactivity:
                     # "text": ['你好','你好好'],
                     "model": "bge-large-zh-v1.5"
                 }
-                headers = {
-                    "Content-Type": "application/json"
-                }
+                headers = {"Content-Type": "application/json"}
                 response = requests.post(self.embedding_model_url, json=payload, headers=headers)
                 embeddings = response.json()['embedding']
             else:
@@ -451,7 +450,7 @@ class ProactivityChatHelper:
                 return_type = int(return_type)
             elif return_type in judge_type:  # in case llm replies in Chinese
                 return_type = judge_type.index(return_type) + 1
-            else: # other cases
+            else:  # other cases
                 return_type = 8
 
             # these 2 conditions are not implemented for speed test
@@ -523,8 +522,15 @@ class LanguageModelAPIHandlerProactivity(LanguageModelAPIHandler):
             yield ele
         logger.info(f"Model output: {total_answer}")
         # self.proactivity_chat_helper.add_2_agent(json.dumps({"user": inputs['data'], "AI": total_answer}, ensure_ascii=False))
-        self.proactivity_chat_helper.add_2_agent([{"role": 'user', "content": inputs['data']}, {"role": 'assistant', "content": total_answer}])
-
+        self.proactivity_chat_helper.add_2_agent(
+            [{
+                "role": 'user',
+                "content": inputs['data']
+            }, {
+                "role": 'assistant',
+                "content": total_answer
+            }]
+        )
 
     def _before_process(self, prompt: str, count: int) -> List[Dict[str, str]]:
         """

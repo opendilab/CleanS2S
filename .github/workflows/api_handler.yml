@@ -1,0 +1,29 @@
+name: ASR_TTS_LLM_HANDLER
+
+on: [push]
+
+jobs:
+  pytest:
+    runs-on: ubuntu-latest
+    strategy:
+      max-parallel: 5
+
+    steps:
+    - uses: actions/checkout@v4
+    - name: Set up Python 3.10
+      uses: actions/setup-python@v3
+      with:
+        python-version: '3.10'
+    - name: Install dependencies
+      run: |
+        pip install -r backend/requirements.txt
+    - name: Test asr, tts, llm
+      env: 
+        ASR_TTS_API_KEY: ${{secrets.ASR_TTS_API_KEY}}
+        LLM_API_KEY: ${{secrets.LLM_API_KEY}}
+      run: |
+        pip install pytest
+        export PYTHONPATH=$PYTHONPATH:$(pwd)
+        pytest backend/tests/test_siliconflow_asr.py -s
+        pytest backend/tests/test_siliconflow_tts.py -s
+        pytest backend/tests/test_llm_api.py -s

@@ -29,7 +29,7 @@ def main():
     if len(bad_vars) > 0:
         logger.info(f"Some environment variables are not set, which can be problematic: {bad_vars}")
     embedding_model_name = os.getenv("EMBEDDING_MODEL_NAME")
-    
+
     # Use traditional RAG as rag backend:
     # rag = RAGLanguageModelHelper(model_name, model_url, 256, embedding_model_name, rag_backend='base')
 

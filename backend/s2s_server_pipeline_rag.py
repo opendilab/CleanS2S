@@ -299,9 +299,7 @@ class CleanS2SLightRAG:
                 ["local", "global", "hybrid", "naive"]
         """
 
-        async def llm_model_func(
-                prompt, system_prompt=None, history_messages=[], **kwargs
-        ) -> str:
+        async def llm_model_func(prompt, system_prompt=None, history_messages=[], **kwargs) -> str:
             # Get the response of llm in an asynchronous manner.
             return await openai_complete_if_cache(
                 lm_model_name,
@@ -403,16 +401,18 @@ class CleanS2SLightRAG:
             Search the information from the knowledge graph given a query.
             """
             loop = always_get_an_event_loop()
-            return loop.run_until_complete(_local_query(
-                query,
-                key_words,
-                rag.chunk_entity_relation_graph,
-                rag.entities_vdb,
-                rag.relationships_vdb,
-                rag.text_chunks,
-                param,
-                asdict(rag),
-            ))
+            return loop.run_until_complete(
+                _local_query(
+                    query,
+                    key_words,
+                    rag.chunk_entity_relation_graph,
+                    rag.entities_vdb,
+                    rag.relationships_vdb,
+                    rag.text_chunks,
+                    param,
+                    asdict(rag),
+                )
+            )
 
         return [_query(self.rag, query, key_words, param=QueryParam(mode=self.mode, top_k=top_k))]
 
@@ -557,12 +557,7 @@ class RAGLanguageModelHelper:
             search_query = ", ".join(keywords)
         except json.JSONDecodeError:
             try:
-                result = (
-                    result.replace(kw_prompt[:-1], "")
-                        .replace("user", "")
-                        .replace("model", "")
-                        .strip()
-                )
+                result = (result.replace(kw_prompt[:-1], "").replace("user", "").replace("model", "").strip())
                 result = "{" + result.split("{")[1].split("}")[0] + "}"
 
                 keywords_data = json.loads(result)
