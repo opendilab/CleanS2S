@@ -76,7 +76,7 @@ class ch_meme:
 def test_rec_chmeme(query: str = '耗子尾汁', k: int = 4):
     # json file path
     #file_path = '/mnt/afs/wangqijian/meme/ch_memes/new_100_chmeme.json'
-    file_path=os.environ.get("file_path")
+    file_path = os.environ.get("file_path")
     with open(file_path, 'r', encoding='utf-8') as file:
         ch_dataset = json.load(file)
     # as for ch_meme, only support online embedding model
@@ -84,7 +84,7 @@ def test_rec_chmeme(query: str = '耗子尾汁', k: int = 4):
     my_chmeme = ch_meme(data=ch_dataset)
     return_id = my_chmeme.get_topk_meme(query, k)
     #prefix = '/mnt/afs/niuyazhe/data/meme/data/Cimages/Cimages/Cimages/Image_'
-    prefix=os.environ.get('prefix')
+    prefix = os.environ.get('prefix')
     image_path = [f'{prefix}({x}).jpg' for x in return_id]
     for path in image_path:
         print(path)
