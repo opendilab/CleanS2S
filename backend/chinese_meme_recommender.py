@@ -7,7 +7,7 @@ from sklearn.metrics.pairwise import cosine_similarity
 from PIL import Image
 
 
-class ch_meme:
+class ChineseMemeRecommender:
 
     def __init__(self, data: dict, embedding_model_name: str = 'online'):
         self.data = data
@@ -19,7 +19,7 @@ class ch_meme:
         if embedding_model_name == 'online':
             self.embedding_model_url = os.getenv("EMBEDDING_URL")
             if self.embedding_model_url is None:
-                self.embedding_model_url = "http://103.177.28.193:30086/embedding"
+                self.embedding_model_url = os.environ.get("embedding_url")
         elif embedding_model_name == 'jina':
             self.embedding_model = AutoModel.from_pretrained("jinaai/jina-embeddings-v3", trust_remote_code=True)
         else:
@@ -40,7 +40,6 @@ class ch_meme:
             if self.embedding_model_name == 'online':
                 payload = {
                     "text": [query] + data_sentence,
-                    # "text": ['你好','你好好'],
                     "model": "bge-large-zh-v1.5"
                 }
                 headers = {"Content-Type": "application/json"}
@@ -73,17 +72,14 @@ class ch_meme:
         return res
 
 
-def test_rec_chmeme(query: str = '耗子尾汁', k: int = 4):
+def test_rec_chmeme(file_path:str, query: str = '耗子尾汁', k: int = 4):
     # json file path
-    #file_path = '/mnt/afs/wangqijian/meme/ch_memes/new_100_chmeme.json'
-    file_path = os.environ.get("file_path")
     with open(file_path, 'r', encoding='utf-8') as file:
         ch_dataset = json.load(file)
-    # as for ch_meme, only support online embedding model
+    # as for ChineseMemeRecommender, only support online embedding model
     # other models can be added later
-    my_chmeme = ch_meme(data=ch_dataset)
+    my_chmeme = ChineseMemeRecommender(data=ch_dataset)
     return_id = my_chmeme.get_topk_meme(query, k)
-    #prefix = '/mnt/afs/niuyazhe/data/meme/data/Cimages/Cimages/Cimages/Image_'
     prefix = os.environ.get('prefix')
     image_path = [f'{prefix}({x}).jpg' for x in return_id]
     for path in image_path:
@@ -91,5 +87,6 @@ def test_rec_chmeme(query: str = '耗子尾汁', k: int = 4):
         img = Image.open(path)
         img.show()
 
-
-test_rec_chmeme()
+if __name__ == "__main__":
+    file_path = ''  #your file path
+    test_rec_chmeme(file_path)
