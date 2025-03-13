@@ -38,10 +38,7 @@ class ChineseMemeRecommender:
             similarities = self.embedding_model.similarity(query, data_sentence)
         else:
             if self.embedding_model_name == 'online':
-                payload = {
-                    "text": [query] + data_sentence,
-                    "model": "bge-large-zh-v1.5"
-                }
+                payload = {"text": [query] + data_sentence, "model": "bge-large-zh-v1.5"}
                 headers = {"Content-Type": "application/json"}
                 response = requests.post(self.embedding_model_url, json=payload, headers=headers)
                 embeddings = response.json()['embedding']
@@ -72,7 +69,7 @@ class ChineseMemeRecommender:
         return res
 
 
-def test_rec_chmeme(file_path:str, query: str = '耗子尾汁', k: int = 4):
+def test_rec_chmeme(file_path: str, query: str = '耗子尾汁', k: int = 4):
     # json file path
     with open(file_path, 'r', encoding='utf-8') as file:
         ch_dataset = json.load(file)
@@ -86,6 +83,7 @@ def test_rec_chmeme(file_path:str, query: str = '耗子尾汁', k: int = 4):
         print(path)
         img = Image.open(path)
         img.show()
+
 
 if __name__ == "__main__":
     file_path = ''  #your file path

@@ -156,7 +156,9 @@ def save_to_json(data: dict, output_path: str) -> None:
         json.dump(data, f, ensure_ascii=False, indent=4)
 
 
-def get_dataset(data: dict, prompt_path: str, client_endpoint: str, img_prefix_dir: str, select_numbers: list = None) -> dict:
+def get_dataset(
+        data: dict, prompt_path: str, client_endpoint: str, img_prefix_dir: str, select_numbers: list = None
+) -> dict:
     data_dict = data
     if select_numbers is None:
         random_numbers = get_smaples_random(data_dict, 10)
@@ -211,7 +213,6 @@ def get_dataset(data: dict, prompt_path: str, client_endpoint: str, img_prefix_d
     return json_dataset
 
 
-
 csv_file_path = os.environ.get("csv_file_path")
 # path to the image files
 image_prefix = os.environ.get("img_prefix")
@@ -232,6 +233,7 @@ def main():
     select_numbers = range(0, 6046)
     json_dataset = get_dataset(data, prompt_path, model_endpoint, image_prefix, select_numbers)
     save_to_json(json_dataset, dataset_path_json)
+
 
 if __name__ == "__main__":
     main()
