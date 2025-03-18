@@ -101,7 +101,7 @@ def get_ans_chmeme_chinese(
             src_parts = re.split(r'[;；]', src)
             tgt_parts = re.split(r'[;；]', tgt)
             for src_item, tgt_item in zip(src_parts, tgt_parts):
-                add_prompt += f'， \‘{tgt_item}\’ 有 \‘{src_item}\’ 的意思'
+                add_prompt += f"， ‘{tgt_item}’ 有 ‘{src_item}’ 的意思"
             add_prompt += '。'
             question += add_prompt
 
