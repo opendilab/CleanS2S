@@ -173,7 +173,7 @@ def get_dataset(
     img_l = random_numbers
 
     for num in img_l:
-        img_path = os.path.join(img_prefix_dir, f"({num}).jpg")
+        img_path = os.path.join(img_prefix_dir, f"Image_({num}).jpg")
         image_list.append(img_path)
 
     client = OpenAI(
