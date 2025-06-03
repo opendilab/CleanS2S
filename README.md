@@ -5,6 +5,8 @@ English | [简体中文(Simplified Chinese)](https://github.com/opendilab/CleanS
 **CleanS2S** is a Speech-to-Speech (**S2S**) prototype agent that provides high-quality and streaming interactions in the single-file implementation. This design is simple and clean, aiming to provide a 
 Chinese interactive prototype agent like the GPT-4o style. This project wants to let users directly experience the power of Linguistic User Interface (**LUI**) and quickly explore/vailidate the potential of the S2S pipeline for researchers.
 
+Add [Subjective Action Judgement](https://github.com/opendilab/CleanS2S/blob/main/backend/README.zh.md), enhanced the agent's ability to proactively initiate actions during conversations.
+
 Here are some live conversation demos of CleanS2S:
 
 > Note: please unmute the video first.
@@ -312,12 +314,14 @@ We appreciate all the feedbacks and contributions. Feel free to ask questions. P
 
 ## Citing CleanS2S
 ```latex
-@misc{CleanS2S,
-    title={CleanS2S: High-quality and streaming Speech-to-Speech interactive agent in a single file},
-    author={Niu, Yazhe and Hu, Shuai and Wang, Haolin and Lu, Yudong and Ma, Runmin and Chen, Yun},
-    publisher={GitHub},
-    howpublished={\url{https://github.com/opendilab/CleanS2S}},
-    year={2024},
+@misc{lu2025cleans2s
+      title={CleanS2S: Single-file Framework for Proactive Speech-to-Speech Interaction}, 
+      author={Yudong Lu and Yazhe Niu and Shuai Hu and Haolin Wang},
+      year={2025},
+      eprint={2506.01268},
+      archivePrefix={arXiv},
+      primaryClass={cs.AI},
+      url={https://arxiv.org/abs/2506.01268}, 
 }
 ```
 

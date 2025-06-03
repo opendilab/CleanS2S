@@ -4,6 +4,8 @@
 
 **CleanS2S** 是一个语音到语音 (**S2S**) 的原型智能体，提供高质量的流式交互，并采用单文件实现。其设计简洁明了，旨在提供类似 GPT-4o 风格的中文交互原型智能体。该项目希望让用户直接体验语言用户界面 (**LUI**) 的强大功能，并帮助研究人员快速探索和验证 S2S pipeline 的潜力。
 
+添加了[主动式交互判定模块](https://github.com/opendilab/CleanS2S/blob/main/backend/README.zh.md)，增强了智能体在对话中的主动发起动作的能力。
+
 以下是 CleanS2S 的一些实时对话演示视频：
 
 > 注意：请先取消视频静音。
@@ -302,12 +304,14 @@ pnpm dev --port 3001
 
 ## 引用 CleanS2S
 ```latex
-@misc{CleanS2S,
-    title={CleanS2S: High-quality and streaming Speech-to-Speech interactive agent in a single file},
-    author={Niu, Yazhe and Hu, Shuai and Wang, Haolin and Lu, Yudong and Ma, Runmin and Chen, Yun},
-    publisher={GitHub},
-    howpublished={\url{https://github.com/opendilab/CleanS2S}},
-    year={2024},
+@misc{lu2025cleans2s
+      title={CleanS2S: Single-file Framework for Proactive Speech-to-Speech Interaction}, 
+      author={Yudong Lu and Yazhe Niu and Shuai Hu and Haolin Wang},
+      year={2025},
+      eprint={2506.01268},
+      archivePrefix={arXiv},
+      primaryClass={cs.AI},
+      url={https://arxiv.org/abs/2506.01268}, 
 }
 ```
 

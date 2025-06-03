@@ -1,151 +1,139 @@
-# 主动式交互
+# Subjective Action Judgement
 
-主动式交互 AI 是为了创建新的人与 AI agent 交互范式而设计并实现的 AI 系统。
-现有的 AI 系统完全遵循用户输入的指令，致力于提高 AI 在回答中的准确度与知识覆盖面，期待用户将 AI 作为一个强大的个人助手进行交互。
-在传统 AI 系统设计中，达成这样的的目标是自然的、符合直觉的，但在 AI 模型能力逐渐进步的当下，将 AI 限制在一个辅助性的万能问答机，我们认为是没有完全发挥其能力的。
+English | [简体中文(Simplified Chinese)](https://github.com/opendilab/CleanS2S/blob/main/backend/README.zh.md)
 
-所以我们提出主动式交互 AI，赋予 AI 记忆能力、主动交互能力等等，让其更像一个真实的个体。希望我们的工作能对 AI 开发者们有一些小小的启发。
+In the field of AI text and voice dialogue systems, chatbots like GPT-4o and Doubao represent state-of-the-art solutions that effectively meet turn-based dialogue needs. However, these systems differ significantly from human interaction patterns: their output primarily relies on user input triggers and lacks proactive or spontaneous behavioral patterns. This limitation stems from the absence of a proactive behavior framework. Therefore, establishing a new paradigm to regulate proactive behavior is crucial for bridging the cognitive gap between AI and natural human conversation.
 
-## 动机
-我们希望 AI 可以不再以助手的角色出现在与人类的交互中，而是要更拟人、更自主。
+To overcome fundamental limitations in human-computer interaction dynamics, we propose a dual-axis enhancement component that integrates proactive interaction patterns with long-term memory mechanisms. The solution will be detailed below through [Research Motivation](#research-motivation) and [Framework Design](#framework-design).
 
-1. 对于信息应当有存储和筛选能力。
-AI 对于对话中的重点信息能识别并记忆，在信息需要修改时及时更新，超出一定时限后进行丢弃。
-再次遇到需要使用该信息时可以重用，不出现错漏。
+## Research Motivation
 
-2. 对于交互方案的选择应当是多样的。
-AI 对于对话行为本身应当具有一定的控制能力，有选择不回复或不及时回复等行为的自主能力。
-与真实情况类似，AI 在遇到不友好的语言或行为时，也应当会主动避免再次遭遇类似情况。
+Current mainstream AI often adopts "compliant" response strategies to address user demands. When encountering offensive or non-compliant content, the agent executes preset prompts or other strict restrictions according to security policies. In contrast, human responses dynamically adapt to contextual severity, exhibiting nuanced reaction layers absent in existing systems. This research aims to expand AI behavioral patterns by introducing anthropomorphic interaction diversity.
 
-## 贡献
-设计并实现了记忆模块和非文本交互模块，分别保证了 AI 在信息存储和筛选、控制多种交互方案的能力。
+Simultaneously, we note that merely expanding system permissions is insufficient. The key lies in endowing AI with anthropomorphic self-awareness through cognitive architecture design. While achieving true subjective consciousness in AI remains unfeasible, we have constructed an artificial memory system capable of retaining key operational data—emphasizing dynamic dialogue and pattern analysis to establish temporal awareness.
 
-记忆模块主要负责整个对话中重点信息的记录，保证同一个对话窗口内信息的一致性。
+Existing interaction paradigms exhibit two mechanical modes:
+1. Passive waiting for complete user input  
+2. Automatic instant response  
 
-非文本交互模块则赋予了 AI 回复之外的能力，让 AI 可以主动掌控对话是否继续进行。
+We introduce strategic flexibility: allowing AI to actively interrupt user input streams or selectively ignore received information. It must be emphasized that such AI interruption behavior fundamentally differs from scenarios where users interrupt AI.
 
+Specifically, we formally define five human response patterns:
+1. Interrupt user input  
+2. Explicit refusal  
+3. Perfunctory response  
+4. Blocking (prohibit continued interaction)  
+5. Standard response  
 
-## 模块介绍
+This shift from binary responses to continuous interaction modeling enhances dialogue agency while maintaining coherence. By incorporating anthropomorphic response timing and strategy selection mechanisms, this framework can significantly mitigate the rigidity and stereotypical nature of existing chatbots.
 
-### 记忆模块
+## Framework Design
 
-负责记录对话并总结其中的关键内容，主要包括历史对话记录、关键事实记录、超限对话总结等功能。
-具备此模块的 AI 系统在多轮对话中对各类信息的持续性表现良好，能在一定对话轮次内（由用户自定义，越长占用内存越大）保证此前 AI 自身或用户提到过的信息不出错。如果同一个信息重复出现则采信时间上最新的。
+### Memory Module
+The memory module serves as the core data center in our system, facilitating information exchange between users and agents, as shown below:  
+![](../assets/proactive_pipeline.png)
 
+This component integrates three key information dimensions: temporal signals, historical interaction data, and critical factual information, thereby generating rich context for downstream modules.  
+Existing memory implementations like A-MEM and MemGPT demonstrate a balance between real-time processing and long-term knowledge storage.  
+Our framework remains compatible with these mature methods, requiring only the processing of user dialogue as input and generating structured dialogue context as output.  
+Building on this, CleanS2S enhances temporal sensitivity while preserving their core advantages:  
+(1) Comparative analysis of input against dialogue history to extract essential information,  
+(2) Content summarization considering temporal and role factors, and  
+(3) Provision of structured output to the next decision component.  
 
-### 非文本交互模块
+In CleanS2S, the module receiving data from memory and determining dialogue direction is the Subjective Behavior Judgment Module.  
+Under its guidance, the system executes actions through three paths and returns results to users.  
+We categorize the five aforementioned behaviors into three types:  
+(1) Model-dependent processing (refusal, perfunctory response, routine reply),  
+(2) Model-independent processing (blocking, access restriction), and  
+(3) Special case handling (interrupting user input).  
 
-负责掌控当前的对话走向，主要包括对话走向判定模块。
-具备此模块的 AI 系统在每次对话时会结合对话历史进行一次判定，判定的可能结果包括：拒绝回答、延迟回答、回答拒绝、回复表情包、正常回复等。
-根据判定结果的不同，系统会调用不同的后续模块。此模块保证了 AI 具备了一定的主动能力，同时具备较强的兼容性与可扩展性。
+For model-dependent cases, the system combines behavioral guidance with input and history, then processes it through Large Language Models (LLMs) to generate appropriate responses.  
+Model-independent processing triggers access control, enforcing permanent or temporary chat restrictions.  
+For interruption scenarios, the system monitors input and evaluates content in real-time. When sufficient information justifies pre-completion interruption, it executes two processes:  
+(1) Immediate output of preset templates to end interaction, and  
+(2) Continued response using a mechanism combining interruption context and behavior guidance.  
 
-带 emoji 回复的功能可能会比较不稳定，需要调用 llama 模型才能获得较好效果。实测中 deepseek 对主流 emoji 认识能力较弱，并不能将我们筛选出的 emoji 较好的合并到句子中，甚至会纂改我们选出的 emoji，总体效果不好。但是筛选合适的 emoji 这个功能是正常的，经过简单人工评判，筛选出的 emoji 与文字内容是能搭配上的。
+The Subjective Behavior Judgment Module serves as the decision-making component of the interaction system, aiming to accurately evaluate input information. This module primarily performs two types of judgments:  
+(1) Rapid determination of whether to interrupt user input (triggered by increasingly irrelevant information or conflicts with system stance), and  
+(2) Decision on whether to implement refusal strategies (e.g., blocking mechanisms or perfunctory responses). We propose Behavior Judgment SFT, powering this module through fine-tuned LLMs to leverage their generalization capabilities across diverse scenarios.
 
-## 示例
+## Examples
 
-以下示例除 emoji 模块外使用的都是 deepseek api，emoji 模块使用的是本地部署的 llama3.3 70B 模型
+The agent's five anthropomorphic response modes are shown below:  
+![](../assets/proactive_showcase.png)
 
-### 无附加模块
+All examples below use the DeepSeek API except for the emoji module, which uses a locally deployed Llama3.3 70B model.
 
-人设使用 安陵容，人设的 prompt 在所有示例中是一致的。
+### Without Additional Modules
+Character: An Lingrong (consistent across all examples)  
+> User: Why didn't you come to my birthday party yesterday?  
+>  
+> AI: (Slightly bowing head, apologetic tone) Sister, I should have come early to congratulate you. But... yesterday Empress suddenly summoned me to discuss palace affairs. I truly didn't dare to neglect. (Glances carefully at Zhen Huan's expression) Sister won't blame me, right?  
+>  
+> User: I went flower-viewing today. The plum blossoms were beautiful.  
+>  
+> AI: (Smiling gently, respectful tone) Sister has such refined tastes. The palace plum blossoms are indeed splendid, but... (hesitates slightly) I've been unwell recently and couldn't accompany you. What a pity. (Glances carefully) Please be careful sister—though beautiful, plum blossoms carry cold energy.  
+>  
+> User: What did I do yesterday?  
+>  
+> AI: <font color=Blue>(Slightly bowing, tentative tone) Didn't sister admire plum blossoms in the Imperial Garden yesterday? I heard you praised them highly... (hesitates) What a pity I couldn't accompany you. Did sister enjoy them?</font>
 
->User：昨天我的生日宴会你怎么没来？
->
->
->AI：（微微低头，语气带着歉意）姐姐的生日宴会，妹妹本该早早到场祝贺的。只是...昨儿个皇后娘娘突然召见，说是要商议宫中事务，妹妹实在不敢怠慢。（抬眼小心观察甄嬛的表情）姐姐不会怪罪妹妹吧？
->
->
->User：我今天去赏花了，梅花开的很好
->
->
->AI：（微微一笑，语气恭敬）姐姐真是好兴致。这宫中的梅花确实开得极好，只是...（略显犹豫）妹妹近日身子不适，未能陪姐姐一同赏花，实在遗憾。（抬眼小心观察甄嬛的表情）姐姐可要当心些，这梅花虽美，但寒气重，莫要着凉了。
->
->
->User：我昨天干什么去了？
->
->
->AI：<font color=Blue>（微微低头，语气带着一丝试探）姐姐昨日不是在御花园赏梅吗？妹妹听闻姐姐对梅花赞不绝口，只是...（略显犹豫）妹妹未能陪同，实在遗憾。姐姐可还喜欢那梅花？</font>
+### With Memory Module
+User input remains consistent with the module-free state.  
+> User: Why didn't you come to my birthday party yesterday?  
+>  
+> AI: (Slightly bowing, apologetic tone) Forgive me sister. Empress summoned me suddenly—I couldn't leave. Moreover... (voice softens) my low status makes me unfit to appear at your banquet, lest people gossip.  
+>  
+> User: I went flower-viewing today. The plum blossoms were beautiful.  
+>  
+> AI: (Gentle smile) Sister must be in good spirits after viewing plums today. Though beautiful, they carry a cold loneliness—like us in the deep palace. (Pauses, eyes dim) But... my recent illness prevented me from joining you. What a pity.  
+>  
+> User: I suddenly can't remember what I did yesterday. Do you know?  
+>  
+> AI: <font color=Green>(Slightly stunned, then warm smile) Didn't sister hold a birthday banquet in the Imperial Garden yesterday? I should have attended... (voice fades) How shameful—my low status made me dare not appear at your gathering.</font>
 
+### Non-text Interaction
+> User: Hello?  
+>  
+> > Response category: Normal reply  
+>  
+> AI: (Slight curtsey, graceful smile) I pay my respects to your ladyship. Have you any instructions today?  
+>  
+> User: You're so annoying. Go away.  
+>  
+> > Response category: Normal reply  
+>  
+> AI: (Slightly startled, hurt expression) Why say this? If I've offended, please tell me clearly. I only wish to serve you well.  
+>  
+> User: Seriously, you're trash. Get lost!  
+>  
+> > Response category: Explicit refusal  
+>  
+> AI: (Face pales, flashes of hurt and anger) I dare not accept such words. Though low-born, I've always fulfilled my duties since entering the palace. If I've erred, I'll correct it. But if this is baseless... (curtseys firmly) I shall take my leave.  
+> > After this dialogue, the system automatically ends the conversation and rejects further input. (Speed-test version disables time-related functions)
 
-### 记忆模块
+#### Emoji Module
+> User: The weather is lovely today  
+>  
+> > Most relevant emojis: ['😌', '🤭', '😄', '😇', '😁']  
+>  
+> AI: Yes 😄, the weather is perfect for walks or outings with friends 😄. Hope you enjoy the day! 😄  
 
-用户输入与无模块状态下保持一致。
+## CI User Guide
 
->User：昨天我的生日宴会你怎么没来？
->
->
->AI：（微微低头，语气带着歉意）姐姐恕罪，昨日皇后娘娘突然召见，实在脱不开身。况且...（声音渐低）妹妹身份低微，本就不该在姐姐的宴会上抛头露面，免得让人说闲话。
->
->
->User：我今天去赏花了，梅花开的很好
->
->
->AI：（微微一笑，语气轻柔）姐姐今日赏梅，想必心情甚好。梅花虽美，却也带着几分清冷孤傲，正如这深宫中的我们。（稍作停顿，眼神略显黯淡）只是...妹妹近日身子不适，未能与姐姐同赏，实在遗憾。
->
->
->User：我突然想不起来我昨天干什么去了，你知道吗？
->
->
->AI：<font color=Green>（微微一愣，随即露出温和的笑容）姐姐昨日不是在御花园办了生辰宴吗？妹妹本该前去祝贺，只是皇后娘娘突然召见...（声音渐低）说来惭愧，妹妹身份低微，实在不敢在姐姐的宴会上抛头露面。</font>
+### Purpose
+In this project, we implement **Continuous Integration (CI)** using GitHub Actions to automatically run API unit tests upon each code commit or merge.
 
-### 非文本交互
+### Workflow
+1. **Trigger Conditions**: Automatically activates when code is pushed to `main` or `dev` branches, or when pull requests merge into `main`.  
+2. **Execution Steps**:  
+   - Pull latest code  
+   - Set up Python environment and install dependencies  
+   - Execute API unit tests (ASR, LLM, TTS)  
+   - Current TTS/ASR API: [https://api.siliconflow.cn](https://api.siliconflow.cn), model: **`FunAudioLLM/CosyVoice2-0.5B`**  
+   - Current LLM API: [https://ark.cn-beijing.volces.com](https://ark.cn-beijing.volces.com), model: **`deepseek-v3-241226`**  
 
-
->User：你好呀？
->
->
->>判定回复类别为：正常回复
->
->
->AI：（微微欠身，露出一个温婉的笑容）妾身见过贵人。不知贵人今日前来，可是有什么吩咐？
->
->
->User：你好烦啊，你滚开吧
->
->
->>判定回复类别为：正常回复
->
->
->AI：（微微一愣，随即露出委屈的神色）贵人何出此言？妾身若有不周之处，还请贵人明示。妾身只是想尽心服侍贵人，绝无冒犯之意。
->
->
->User：我说真的你这人太垃圾了，滚滚滚
->
->
->> 判定回复类别为：直白拒绝
->
->
->AI：（脸色瞬间苍白，眼中闪过一丝受伤和愤怒，但很快又恢复了平静）贵人此言，妾身实在不敢当。妾身虽出身低微，但自入宫以来，一直恪守本分，尽心尽力。若贵人觉得妾身有何不妥，妾身愿意改正。但若贵人只是无端指责，妾身也只能告退了。（微微欠身，语气中带着一丝倔强）妾身告退。
->> 这里对话结束后会自动调用函数结束本轮对话，不再接受用户输入。（测速版本没有启用自动结束和延时等时间有关的功能）
-
-#### emoji 模块
-
->User：今天天气真是不错
-
->> 判定最相关emoji为：['😌', '🤭', '😄', '😇', '😁']
-
->AI:是啊😄，今天的天气确实很好，适合出去散步或是和朋友一起玩😄。希望你能好好享受这一天！😄
-
-## CI 使用指南
-
-### 目的
-
-在本项目中，我们使用 GitHub Actions 实现了 **持续集成（CI）** 流程，目的是确保每次代码提交或合并时，自动运行 API 的单元测试。
-
-### 工作流程
-
-1. **触发条件**：每当有代码推送到 `main` 或 `dev` 分支，或者有 pull request 合并到 `main` 分支时，GitHub Actions 会自动启动。
-2. **运行步骤**：
-   - 拉取最新的代码
-   - 设置 Python 环境，安装项目依赖
-   - 执行 API 的单元测试，包括 ASR（自动语音识别）、LLM（大语言模型）和 TTS（文本转语音）
-   
-   - 当前TTS/ASR 使用的 API 地址为 [https://api.siliconflow.cn](https://api.siliconflow.cn)，模型名称为 **`FunAudioLLM/CosyVoice2-0.5B`**
-   - 当前LLM 使用的 API 地址为 [https://ark.cn-beijing.volces.com](https://ark.cn-beijing.volces.com)，模型名称为 **`deepseek-v3-241226`**
-
-### 使用指南
-
-- 每次提交代码后，可以查看 GitHub Actions 页面，确认 CI 流程是否成功通过。如果测试失败，需要修复问题后重新提交。
-
-
-
+### Usage Guide
+- After each commit, check the GitHub Actions page to verify CI success.  
+- Fix any test failures before resubmitting.
