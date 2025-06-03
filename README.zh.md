@@ -302,12 +302,14 @@ pnpm dev --port 3001
 
 ## 引用 CleanS2S
 ```latex
-@misc{CleanS2S,
-    title={CleanS2S: High-quality and streaming Speech-to-Speech interactive agent in a single file},
-    author={Niu, Yazhe and Hu, Shuai and Wang, Haolin and Lu, Yudong and Ma, Runmin and Chen, Yun},
-    publisher={GitHub},
-    howpublished={\url{https://github.com/opendilab/CleanS2S}},
-    year={2024},
+@misc{lu2025cleans2s
+      title={CleanS2S: Single-file Framework for Proactive Speech-to-Speech Interaction}, 
+      author={Yudong Lu and Yazhe Niu and Shuai Hu and Haolin Wang},
+      year={2025},
+      eprint={2506.01268},
+      archivePrefix={arXiv},
+      primaryClass={cs.AI},
+      url={https://arxiv.org/abs/2506.01268}, 
 }
 ```
 
