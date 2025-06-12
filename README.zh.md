@@ -318,3 +318,11 @@ pnpm dev --port 3001
 ## License
 
 CleanS2S 根据 Apache 2.0 许可证发布。
+
+**重要第三方许可声明：**  
+本项目集成的 [jinaai/jina-embeddings-v3](https://huggingface.co/jinaai/jina-embeddings-v3) 模型单独遵循 [CC BY-NC 4.0 许可](https://creativecommons.org/licenses/by-nc/4.0/deed.zh)。
+
+使用注意事项：
+1. 商业场景使用需谨慎：禁止将该模型用于商业用途
+2. 二次分发限制：修改或分发包含此模型的项目时，须保留原始许可声明
+3. 合规要求：使用本项目即表示您确认理解并接受上述所有许可条款
