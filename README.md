@@ -327,4 +327,21 @@ We appreciate all the feedbacks and contributions. Feel free to ask questions. P
 
 ## License
 
-CleanS2S released under the Apache 2.0 license.
+CleanS2S codebase is released under the Apache 2.0 license.
+
+**Important Third-Party License Notice:**  
+This project uses the [jinaai/jina-embeddings-v3](https://huggingface.co/jinaai/jina-embeddings-v3) model which is separately licensed under [Creative Commons Attribution-NonCommercial 4.0 International (CC BY-NC 4.0)](https://creativecommons.org/licenses/by-nc/4.0/). 
+
+Key restrictions for the Jina Embeddings model:
+- ✅ **Allowed**: Non-commercial use and modification
+- ❌ **Prohibited**: Commercial use of the model
+- 📝 **Requirement**: Attribution must be given to Jina AI
+
+When using this project, you must:
+1. Comply with both licenses simultaneously
+2. Ensure any use of the Jina Embeddings model follows CC BY-NC 4.0 terms
+3. Not sublicense or commercially redistribute the Jina model
+
+For full terms:
+- [Apache 2.0 License](LICENSE)
+- [CC BY-NC 4.0 License](https://creativecommons.org/licenses/by-nc/4.0/legalcode)
