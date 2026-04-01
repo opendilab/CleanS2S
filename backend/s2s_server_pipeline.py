@@ -1281,7 +1281,16 @@ class LanguageModelAPIHandler(BaseHandler):
         else:
             self.temperature = 0
 
-        self.client = OpenAI(api_key=os.getenv("LLM_API_KEY"), base_url=model_url)
+        # MiniMax requires temperature in (0.0, 1.0]; clamp to avoid API errors
+        is_minimax = model_url is not None and "minimax" in model_url.lower()
+        if is_minimax and self.temperature == 0:
+            self.temperature = 0.01
+
+        # Auto-detect API key: prefer LLM_API_KEY, fall back to MINIMAX_API_KEY for MiniMax
+        api_key = os.getenv("LLM_API_KEY")
+        if not api_key and is_minimax:
+            api_key = os.getenv("MINIMAX_API_KEY")
+        self.client = OpenAI(api_key=api_key, base_url=model_url)
 
         self.user_role = "user"
         self.assistant_role = "assistant"
