@@ -206,6 +206,22 @@ python3 -u s2s_server_pipeline.py \
 ```
 > ℹ️ **Support for customized LLM**: Here we use deepseek-chat as the default LLM API, you can also change to other LLM API follow the OpenAI interface. (modify the `--lm_model_name` and `--lm_model_url`, set your own API key)
 
+> ℹ️ **Support for MiniMax**: [MiniMax](https://www.minimaxi.com) provides an OpenAI-compatible API with long-context models. Set `MINIMAX_API_KEY` (or `LLM_API_KEY`) and use the example below:
+> ```bash
+> export MINIMAX_API_KEY=<your-minimax-api-key>
+> python3 -u s2s_server_pipeline.py \
+>         --recv_host 0.0.0.0 \
+>         --send_host 0.0.0.0 \
+>         --stt_model_name <your-asr-path> \
+>         --enable_llm_api \
+>         --lm_model_name "MiniMax-M2.7" \
+>         --lm_model_url "https://api.minimax.io/v1" \
+>         --tts_model_name <your-tts-path> \
+>         --ref_dir <ref-audio-path> \
+>         --enable_interruption
+> ```
+> Supported models: `MiniMax-M2.7` (204K context), `MiniMax-M2.7-highspeed` (204K context, faster).
+
 > ℹ️ **Support for other customizations**: You can refer to the parameters list implemented by the `argparse` library in the backend pipeline file (e.g. `s2s_server_pipeline.py`) to customize it according to your own needs.
 All the parameters are well-documented in their help attributes and easy to understand.
 
